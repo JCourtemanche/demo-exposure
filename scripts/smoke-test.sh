@@ -22,6 +22,8 @@ export NEXPOSE_PASS="${NEXPOSE_PASS:-R@pid7-D3mo-BusinessCorp-2026}"
 export CW_ACCESS_KEY="${CW_ACCESS_KEY:-cw-businesscorp-demo-access}"
 export CW_SECRET_KEY="${CW_SECRET_KEY:-cw-BusinessCorp-Demo-S3cret-2026}"
 
+PYTHON_BIN_LOCAL="$(command -v python3 || command -v python || true)"
+
 echo "🧪 Smoke test — Business Corp sims"
 echo ""
 
@@ -47,19 +49,45 @@ echo ""
 # --- 1. Health check ---
 echo "🩺 [1/4] Health check des 2 sims..."
 
-echo -n "  Rapid7 /api/3/assets?size=1... "
-if curl -sSf -u "$NEXPOSE_USER:$NEXPOSE_PASS" "$RAPID7_URL/api/3/assets?size=1" > /dev/null; then
-  echo "✓"
-else
-  echo "❌ Échec"
-  exit 1
-fi
+check_endpoint() {
+  local label="$1"
+  local url="$2"
+  local user="$3"
+  local pass="$4"
+  echo -n "  $label... "
+  local http_code
+  http_code=$(curl -sS -o /dev/null -w "%{http_code}" -u "$user:$pass" "$url" || echo "000")
+  case "$http_code" in
+    2*|3*)
+      echo "✓ ($http_code)"
+      return 0
+      ;;
+    401)
+      echo "❌ 401 (Cloud Run n'accepte pas allUsers)"
+      echo "     → Fix : gcloud run services add-iam-policy-binding <service> \\"
+      echo "              --region=$REGION --member=allUsers --role=roles/run.invoker"
+      return 1
+      ;;
+    403)
+      echo "❌ 403 (org policy iam.allowedPolicyMemberDomains bloque allUsers)"
+      echo "     → Fix : demander levée policy à l'admin GCP, ou changer d'auth"
+      return 1
+      ;;
+    *)
+      echo "❌ code=$http_code"
+      return 1
+      ;;
+  esac
+}
 
-echo -n "  Cyberwatch /api/v3/ping... "
-if curl -sSf -u "$CW_ACCESS_KEY:$CW_SECRET_KEY" "$CW_URL/api/v3/ping" > /dev/null; then
-  echo "✓"
-else
-  echo "❌ Échec"
+check_endpoint "Rapid7 /api/3/assets?size=1" "$RAPID7_URL/api/3/assets?size=1" "$NEXPOSE_USER" "$NEXPOSE_PASS" \
+  || FAIL_HEALTH=1
+check_endpoint "Cyberwatch /api/v3/ping"       "$CW_URL/api/v3/ping"           "$CW_ACCESS_KEY" "$CW_SECRET_KEY" \
+  || FAIL_HEALTH=1
+
+if [ "${FAIL_HEALTH:-0}" = "1" ]; then
+  echo ""
+  echo "❌ Health check échoué — arrêt."
   exit 1
 fi
 

@@ -38,7 +38,7 @@ CYBERWATCH_FORK="$SIMS_DIR/cyberwatch-simul"
 
 PYTHON_BIN="$(command -v python3 || command -v python || true)"
 
-echo "🚀 Deploy Business Corp demo — pipeline complet"
+echo "🚀 Deploy Business Corp demo — pipeline complet (7 étapes)"
 echo "  Repo         : $REPO_ROOT"
 echo "  Sims dir     : $SIMS_DIR"
 echo "  Region       : $REGION"
@@ -114,6 +114,23 @@ fi
 bash deploy-cloudrun.sh
 
 cd "$REPO_ROOT"
+echo ""
+
+# --- 7. Rendre les 2 services invocables publiquement (idempotent) ---
+echo "🌐 [7/7] Autorisation invocations publiques (allUsers → run.invoker)..."
+for svc in rapid7-nexpose-simulator cyberwatch-simulator; do
+  if gcloud run services add-iam-policy-binding "$svc" \
+       --region="$REGION" \
+       --member="allUsers" \
+       --role="roles/run.invoker" \
+       --quiet 2>/dev/null; then
+    echo "  ✓ $svc : allUsers/run.invoker OK"
+  else
+    echo "  ⚠️  $svc : binding refusée (probable org policy iam.allowedPolicyMemberDomains)"
+    echo "     → Demander à un admin org de lever la policy sur ce projet,"
+    echo "       ou basculer XSIAM sur bearer token GCP (non recommandé pour démo)."
+  fi
+done
 echo ""
 
 # --- Récap URLs ---
