@@ -177,6 +177,19 @@ def patch_rapid7(assets_py: Path) -> bool:
             count=1,
         )
 
+    # 5. Neutraliser le slicing EXTRA_SERVER_SEED[:count] qui tronque nos ajouts
+    # Sinon count=12 (default de build_assets_catalog) ignore nos 4 extras Business Corp
+    pattern_slice = re.compile(r"seed\s*=\s*EXTRA_SERVER_SEED\[:count\]")
+    if pattern_slice.search(src):
+        src = pattern_slice.sub(
+            "seed = EXTRA_SERVER_SEED  # patched: include all extras (natives + BC custom)",
+            src,
+            count=1,
+        )
+    else:
+        print(f"  ⚠️  Rapid7: 'seed = EXTRA_SERVER_SEED[:count]' introuvable")
+        print(f"     → Les extra_assets custom peuvent être ignorés si count reste = 12.")
+
     assets_py.write_text(src, encoding="utf-8")
     print(f"  ✅ Rapid7: {assets_py.name} patché")
     return True
@@ -230,6 +243,18 @@ def patch_cyberwatch(assets_py: Path) -> bool:
         print(f"       - Ajouter APRÈS chaque assignment :")
         print(f"         cve_codes = _apply_pinned_cves(list(cve_codes), cve_catalog, <hostname_var>)")
         print(f"     → Voir config/patches/cyberwatch-patch.md pour détail")
+
+    # Neutraliser le slicing qui tronque les extras (idem Rapid7)
+    pattern_slice = re.compile(r"seed\s*=\s*EXTRA_SERVER_SEED\[:count\]")
+    if pattern_slice.search(src):
+        src = pattern_slice.sub(
+            "seed = EXTRA_SERVER_SEED  # patched: include all extras (natives + BC custom)",
+            src,
+            count=1,
+        )
+    else:
+        print(f"  ⚠️  Cyberwatch: 'seed = EXTRA_SERVER_SEED[:count]' introuvable")
+        print(f"     → Les extra_assets custom peuvent être ignorés si count reste = 12.")
 
     assets_py.write_text(src, encoding="utf-8")
     print(f"  ✅ Cyberwatch: {assets_py.name} patché (structure de base)")

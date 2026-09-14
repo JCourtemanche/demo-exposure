@@ -70,6 +70,20 @@ cve_codes = _apply_pinned_cves(list(cve_codes), cve_catalog, hostname)
 
 (la variable `hostname` est déjà disponible via la déstructuration du tuple `EXTRA_SERVER_SEED`)
 
+### Bloc 5 — Neutraliser le slicing qui tronque les extras (⚠️ critique)
+
+Sans ce bloc, `_extra_assets` fait `seed = EXTRA_SERVER_SEED[:count]` avec `count=12` par défaut, ce qui **ignore les extras custom Business Corp**.
+
+**Trouver** dans `_extra_assets` :
+```python
+seed = EXTRA_SERVER_SEED[:count]
+```
+
+**Remplacer par** :
+```python
+seed = EXTRA_SERVER_SEED  # patched: include all extras (natives + BC custom)
+```
+
 ## Vérification manuelle post-patch
 
 Lancer le sim en local :

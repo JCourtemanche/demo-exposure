@@ -87,6 +87,20 @@ vulns = _apply_pinned_cves(vulns, vulns_pool, hostname)
 
 (la variable `hostname` est déjà dépakée du tuple par la boucle `for idx, (hostname, ip, os_name, site_id) in enumerate(seed):`)
 
+### Bloc 5 — Neutraliser le slicing qui tronque les extras (⚠️ critique)
+
+Sans ce bloc, `_extra_assets` fait `seed = EXTRA_SERVER_SEED[:count]` avec `count=12` par défaut de `build_assets_catalog`, ce qui **ignore les 4 extras custom** ajoutés par le bloc 1.
+
+**Trouver** dans `_extra_assets` :
+```python
+seed = EXTRA_SERVER_SEED[:count]
+```
+
+**Remplacer par** :
+```python
+seed = EXTRA_SERVER_SEED  # patched: include all extras (natives + BC custom)
+```
+
 ## Vérification manuelle post-patch
 
 Lancer le sim en local :
