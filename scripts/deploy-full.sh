@@ -27,11 +27,25 @@ SIMS_DIR="${SIMS_DIR:-$(cd "$REPO_ROOT/.." && pwd)/sims}"
 export SIMS_DIR   # utilisé par apply-patches.py et sync-config-to-sims.py
 REGION="${REGION:-europe-west1}"
 
-# Credentials démo par défaut — override via env pour prod
-export NEXPOSE_USER="${NEXPOSE_USER:-businesscorp-demo}"
-export NEXPOSE_PASS="${NEXPOSE_PASS:-R@pid7-D3mo-BusinessCorp-2026}"
-export CW_ACCESS_KEY="${CW_ACCESS_KEY:-cw-businesscorp-demo-access}"
-export CW_SECRET_KEY="${CW_SECRET_KEY:-cw-BusinessCorp-Demo-S3cret-2026}"
+# Credentials des sims — noms de variables EXACTS attendus par chaque
+# deploy-cloudrun.sh upstream (à ne PAS renommer sinon le sim retombe sur ses defaults).
+#
+#   Rapid7 sim (deploy-cloudrun.sh) : NEXPOSE_USERNAME / NEXPOSE_PASSWORD
+#     → deviennent NEXPOSE_USERNAME / NEXPOSE_PASSWORD dans le container
+#     → defaults sim : nxadmin / nxadmin-secret
+#
+#   Cyberwatch sim (deploy-cloudrun.sh) : CW_ACCESS_KEY / CW_SECRET_KEY
+#     → deviennent CYBERWATCH_ACCESS_KEY / CYBERWATCH_SECRET_KEY dans le container (remapping du sim)
+#     → defaults sim : cyberwatch-access-key / cyberwatch-secret-key
+#
+# On garde les defaults natifs des sims pour éviter les mismatches ; si vous
+# voulez des creds custom pour la démo, exportez-les avant de lancer ce script :
+#   export NEXPOSE_USERNAME=businesscorp-demo NEXPOSE_PASSWORD=R@pid7-D3mo...
+#   export CW_ACCESS_KEY=cw-businesscorp-demo CW_SECRET_KEY=cw-BusinessCorp-Demo-S3cret
+export NEXPOSE_USERNAME="${NEXPOSE_USERNAME:-nxadmin}"
+export NEXPOSE_PASSWORD="${NEXPOSE_PASSWORD:-nxadmin-secret}"
+export CW_ACCESS_KEY="${CW_ACCESS_KEY:-cyberwatch-access-key}"
+export CW_SECRET_KEY="${CW_SECRET_KEY:-cyberwatch-secret-key}"
 
 RAPID7_FORK="$SIMS_DIR/Rapid7InsightVM-simul"
 CYBERWATCH_FORK="$SIMS_DIR/cyberwatch-simul"
@@ -97,6 +111,7 @@ echo "☁️  [6/6] Déploiement Cloud Run..."
 
 echo ""
 echo "  → Rapid7 InsightVM simulator..."
+echo "    (creds: NEXPOSE_USERNAME=$NEXPOSE_USERNAME)"
 cd "$RAPID7_FORK"
 if [ ! -f deploy-cloudrun.sh ]; then
   echo "  ❌ deploy-cloudrun.sh introuvable dans $RAPID7_FORK"
@@ -106,6 +121,7 @@ bash deploy-cloudrun.sh
 
 echo ""
 echo "  → Cyberwatch simulator..."
+echo "    (creds: CW_ACCESS_KEY=$CW_ACCESS_KEY)"
 cd "$CYBERWATCH_FORK"
 if [ ! -f deploy-cloudrun.sh ]; then
   echo "  ❌ deploy-cloudrun.sh introuvable dans $CYBERWATCH_FORK"

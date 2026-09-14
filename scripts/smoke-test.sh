@@ -17,10 +17,11 @@
 set -euo pipefail
 
 REGION="${REGION:-europe-west1}"
-export NEXPOSE_USER="${NEXPOSE_USER:-businesscorp-demo}"
-export NEXPOSE_PASS="${NEXPOSE_PASS:-R@pid7-D3mo-BusinessCorp-2026}"
-export CW_ACCESS_KEY="${CW_ACCESS_KEY:-cw-businesscorp-demo-access}"
-export CW_SECRET_KEY="${CW_SECRET_KEY:-cw-BusinessCorp-Demo-S3cret-2026}"
+# Doit être aligné avec les mêmes noms de vars que scripts/deploy-full.sh
+export NEXPOSE_USERNAME="${NEXPOSE_USERNAME:-nxadmin}"
+export NEXPOSE_PASSWORD="${NEXPOSE_PASSWORD:-nxadmin-secret}"
+export CW_ACCESS_KEY="${CW_ACCESS_KEY:-cyberwatch-access-key}"
+export CW_SECRET_KEY="${CW_SECRET_KEY:-cyberwatch-secret-key}"
 
 PYTHON_BIN_LOCAL="$(command -v python3 || command -v python || true)"
 
@@ -80,7 +81,7 @@ check_endpoint() {
   esac
 }
 
-check_endpoint "Rapid7 /api/3/assets?size=1" "$RAPID7_URL/api/3/assets?size=1" "$NEXPOSE_USER" "$NEXPOSE_PASS" \
+check_endpoint "Rapid7 /api/3/assets?size=1" "$RAPID7_URL/api/3/assets?size=1" "$NEXPOSE_USERNAME" "$NEXPOSE_PASSWORD" \
   || FAIL_HEALTH=1
 check_endpoint "Cyberwatch /api/v3/ping"       "$CW_URL/api/v3/ping"           "$CW_ACCESS_KEY" "$CW_SECRET_KEY" \
   || FAIL_HEALTH=1
@@ -95,7 +96,7 @@ fi
 echo ""
 echo "📋 [2/4] Vérification des 4 extra assets custom..."
 
-RAPID7_ASSETS=$(curl -sS -u "$NEXPOSE_USER:$NEXPOSE_PASS" "$RAPID7_URL/api/3/assets?size=50" || echo "")
+RAPID7_ASSETS=$(curl -sS -u "$NEXPOSE_USERNAME:$NEXPOSE_PASSWORD" "$RAPID7_URL/api/3/assets?size=50" || echo "")
 
 EXTRA_ASSETS=(
   "srv-portail.business.org"
@@ -137,7 +138,7 @@ for a in data.get('resources', []):
   fi
 
   local vulns
-  vulns=$(curl -sS -u "$NEXPOSE_USER:$NEXPOSE_PASS" "$RAPID7_URL/api/3/assets/$asset_id/vulnerabilities?size=100" || echo "")
+  vulns=$(curl -sS -u "$NEXPOSE_USERNAME:$NEXPOSE_PASSWORD" "$RAPID7_URL/api/3/assets/$asset_id/vulnerabilities?size=100" || echo "")
   # Match sur cve-YYYY-NNNN (lowercase) car les IDs Rapid7 slug lowercase
   local cve_lower
   cve_lower=$(echo "$cve" | tr '[:upper:]' '[:lower:]')
