@@ -149,17 +149,17 @@ hero_pinning:
     narrative: "Vuln modérée sur portail public — hygiène ASM"
 
 # ------------------------------------------------------------
-# 3. CONFIGURATION SYNC — chemins des forks locaux
+# 3. CONFIGURATION SYNC (déprécié — géré par convention)
 # ------------------------------------------------------------
 #
-# Renseigner les chemins où vos forks locaux des 2 sims sont clonés.
-# Le script sync-config-to-sims.py y déposera business_corp_overrides.py.
+# Les chemins des forks sont désormais résolus automatiquement par
+# sync-config-to-sims.py et apply-patches.py :
+#   1. Env var SIMS_DIR si définie
+#   2. ../sims/ relatif au repo (défaut)
+#
+# Noms de dossiers hardcodés (convention) :
+#   - Rapid7InsightVM-simul
+#   - cyberwatch-simul
+#
+# Pour override : export SIMS_DIR=/chemin/personnalisé avant de lancer les scripts.
 # ------------------------------------------------------------
-
-sync_targets:
-  rapid7:
-    fork_path: C:\Users\jcourtemanch\Documents\dev\demo\sims\Rapid7InsightVM-simul
-    overrides_dest: simulator/generators/business_corp_overrides.py
-  cyberwatch:
-    fork_path: C:\Users\jcourtemanch\Documents\dev\demo\sims\cyberwatch-simul
-    overrides_dest: simulator/generators/business_corp_overrides.py

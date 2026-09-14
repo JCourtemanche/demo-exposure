@@ -6,18 +6,16 @@ Usage :
     pip install pyyaml
     python config/sync-config-to-sims.py
 
-Après exécution :
-    1. Vérifier que le fichier <fork>/simulator/generators/business_corp_overrides.py
-       existe dans chaque fork
-    2. Vérifier que le patch documenté (config/patches/*-patch.md) a été appliqué
-       une fois dans chaque fork sur generators/assets.py
-    3. Rebuild et redeploy Cloud Run : bash deploy-cloudrun.sh dans chaque fork
+Portable : les chemins des forks sont résolus via l'env var SIMS_DIR
+(défaut : ../sims relatif à la racine du repo).
+Noms de dossiers hardcodés (convention) : Rapid7InsightVM-simul,
+cyberwatch-simul.
 
 Le script est idempotent — peut être re-lancé sans risque.
 """
 from __future__ import annotations
 
-import shutil
+import os
 import sys
 from pathlib import Path
 from textwrap import dedent
@@ -30,7 +28,15 @@ except ImportError:
 
 
 HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent
 CONFIG_FILE = HERE / "business-corp-config.yaml"
+
+# Convention hardcoded : les 2 sims sont toujours dans ces dossiers
+SIM_DIRNAMES = {
+    "rapid7":     "Rapid7InsightVM-simul",
+    "cyberwatch": "cyberwatch-simul",
+}
+OVERRIDES_DEST_REL = Path("simulator/generators/business_corp_overrides.py")
 
 
 def load_config() -> dict:
@@ -40,12 +46,27 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
+def resolve_sims_dir() -> Path:
+    """Portable resolution of the sims parent directory.
+
+    Priority :
+      1. Env var SIMS_DIR
+      2. ../sims relative to REPO_ROOT (default)
+    """
+    env = os.environ.get("SIMS_DIR")
+    return Path(env) if env else (REPO_ROOT.parent / "sims")
+
+
+def resolve_fork_path(sim_key: str) -> Path:
+    return resolve_sims_dir() / SIM_DIRNAMES[sim_key]
+
+
 def build_overrides_py(config: dict, target_sim: str) -> str:
     """Generate the Python content for business_corp_overrides.py.
 
     Adapts the EXTRA_ASSETS tuple shape to each sim:
-      - Rapid7   : (hostname, ip, os_name, site_id)
-      - Cyberwatch : (hostname, ip, os_name, category, description, [group_ids])
+      - Rapid7    : (hostname, ip, os_name, site_id)
+      - Cyberwatch: (hostname, ip, os_name, category, description, [group_ids])
     """
     extras = [a for a in config.get("extra_assets", []) if target_sim in a.get("inject_in", [])]
     pinning = [p for p in config.get("hero_pinning", []) if p.get("source") in (target_sim, "both")]
@@ -85,7 +106,6 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
     lines.append("# Guaranteed (asset, CVE) pairs — appended after r.sample() in builders")
     lines.append("# Key: hostname (lower)   Value: list of CVE codes")
     lines.append("PINNED_CVES = {")
-    # Merge multiple pins to the same asset if any
     merged: dict[str, list[str]] = {}
     for p in pinning:
         host = p["asset"].lower()
@@ -98,47 +118,46 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def sync_to_fork(sim_key: str, target_config: dict, overrides_content: str) -> None:
-    fork_path = Path(target_config["fork_path"])
-    dest_rel = target_config["overrides_dest"]
-    dest = fork_path / dest_rel
+def sync_to_fork(sim_key: str, overrides_content: str) -> bool:
+    fork_path = resolve_fork_path(sim_key)
+    dest = fork_path / OVERRIDES_DEST_REL
 
     if not fork_path.exists():
         print(f"⚠️  {sim_key}: fork path not found — {fork_path}")
-        print(f"    → git clone the sim first, then adjust sync_targets in the YAML")
-        return
+        print(f"    → Set SIMS_DIR env var or ensure it exists (clone the sim first)")
+        return False
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(overrides_content, encoding="utf-8")
     print(f"✅ {sim_key}: wrote {dest}")
+    return True
 
 
 def main() -> int:
     config = load_config()
 
-    targets = config.get("sync_targets", {})
-    if not targets:
-        print("❌ Config missing 'sync_targets' section")
-        return 1
+    print(f"📁 Sims dir  : {resolve_sims_dir()}")
+    print(f"📄 Config    : {CONFIG_FILE}")
+    print()
 
-    for sim_key, target_config in targets.items():
+    all_ok = True
+    for sim_key in SIM_DIRNAMES:
         overrides = build_overrides_py(config, sim_key)
-        sync_to_fork(sim_key, target_config, overrides)
+        if not sync_to_fork(sim_key, overrides):
+            all_ok = False
 
     print()
     print(dedent("""\
         --- Next steps ---
-        1. Verify each fork has business_corp_overrides.py in simulator/generators/
-        2. Ensure the one-time patch is applied to generators/assets.py in each fork
-           (see config/patches/rapid7-patch.md and config/patches/cyberwatch-patch.md).
-           This patch is idempotent — safe to re-check.
-        3. Rebuild & redeploy Cloud Run in each fork:
+        1. Ensure the one-time patch is applied to generators/assets.py in each fork
+           (via `python scripts/apply-patches.py` OR manually per config/patches/*-patch.md).
+        2. Rebuild & redeploy Cloud Run in each fork:
               cd <fork>
               bash deploy-cloudrun.sh
-        4. Wait 5-15 min for XSIAM to re-ingest.
-        5. Validate hero cases: runbook/08-validation-checklist.md § H
+        3. Wait 5-15 min for XSIAM to re-ingest.
+        4. Validate hero cases: runbook/08-validation-checklist.md § H
         """))
-    return 0
+    return 0 if all_ok else 1
 
 
 if __name__ == "__main__":

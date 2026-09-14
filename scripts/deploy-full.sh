@@ -24,6 +24,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SIMS_DIR="${SIMS_DIR:-$(cd "$REPO_ROOT/.." && pwd)/sims}"
+export SIMS_DIR   # utilisé par apply-patches.py et sync-config-to-sims.py
 REGION="${REGION:-europe-west1}"
 
 # Credentials démo par défaut — override via env pour prod
@@ -74,21 +75,11 @@ else
 fi
 echo ""
 
-# --- 3. Update config sync_targets si nécessaire ---
-echo "📝 [3/6] Vérification config sync_targets..."
-# Update les chemins dans le YAML si différents (best effort)
-"$PYTHON_BIN" - <<PYEOF
-import re
-from pathlib import Path
-yaml_file = Path("$REPO_ROOT/config/business-corp-config.yaml")
-content = yaml_file.read_text(encoding="utf-8")
-# On ne modifie pas automatiquement — juste on informe si divergent
-if "$RAPID7_FORK".replace('\\\\', '/') not in content.replace('\\\\', '/'):
-    print(f"  ⚠️  sync_targets.rapid7.fork_path dans le YAML pointe ailleurs que $RAPID7_FORK")
-    print(f"     → Ajuster manuellement si besoin dans config/business-corp-config.yaml")
-if "$CYBERWATCH_FORK".replace('\\\\', '/') not in content.replace('\\\\', '/'):
-    print(f"  ⚠️  sync_targets.cyberwatch.fork_path dans le YAML pointe ailleurs que $CYBERWATCH_FORK")
-PYEOF
+# --- 3. Résolution auto des forks (portable) ---
+echo "📝 [3/6] Résolution automatique des forks..."
+echo "  → SIMS_DIR=$SIMS_DIR"
+echo "  → Rapid7  : $RAPID7_FORK"
+echo "  → CW      : $CYBERWATCH_FORK"
 echo ""
 
 # --- 4. Appliquer les patches (idempotent) ---

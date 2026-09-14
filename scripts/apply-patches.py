@@ -12,6 +12,7 @@ Alternative manuelle : voir config/patches/{rapid7,cyberwatch}-patch.md
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -26,6 +27,27 @@ except ImportError:
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
 CONFIG_FILE = REPO_ROOT / "config" / "business-corp-config.yaml"
+
+# Convention hardcoded : les 2 sims sont toujours dans ces dossiers
+SIM_DIRNAMES = {
+    "rapid7":     "Rapid7InsightVM-simul",
+    "cyberwatch": "cyberwatch-simul",
+}
+
+
+def resolve_sims_dir() -> Path:
+    """Portable resolution of the sims parent directory.
+
+    Priority :
+      1. Env var SIMS_DIR
+      2. ../sims relative to REPO_ROOT (default)
+    """
+    env = os.environ.get("SIMS_DIR")
+    return Path(env) if env else (REPO_ROOT.parent / "sims")
+
+
+def resolve_fork_path(sim_key: str) -> Path:
+    return resolve_sims_dir() / SIM_DIRNAMES[sim_key]
 
 MARKER_BEGIN = "# --- Business Corp overrides (patched by apply-patches.py) ---"
 MARKER_END = "# --- end Business Corp overrides ---"
@@ -219,25 +241,19 @@ def patch_cyberwatch(assets_py: Path) -> bool:
 # ------------------------------------------------------------
 
 def main() -> int:
-    config = load_config()
-    targets = config.get("sync_targets", {})
-
-    if not targets:
-        print("❌ Config missing 'sync_targets' section")
-        return 1
-
     print("🔨 Application des patches Business Corp aux sim forks")
+    print(f"📁 Sims dir : {resolve_sims_dir()}")
     print("")
 
     all_ok = True
-    for sim_key, target in targets.items():
-        fork_path = Path(target["fork_path"])
+    for sim_key in SIM_DIRNAMES:
+        fork_path = resolve_fork_path(sim_key)
         assets_py = fork_path / "simulator" / "generators" / "assets.py"
 
         print(f"→ {sim_key} @ {fork_path}")
 
         if not fork_path.exists():
-            print(f"  ⚠️  Fork path introuvable — cloner d'abord le sim")
+            print(f"  ⚠️  Fork path introuvable — cloner d'abord le sim (voir scripts/deploy-full.sh)")
             all_ok = False
             continue
 
