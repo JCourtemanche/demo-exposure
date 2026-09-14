@@ -1,0 +1,42 @@
+# Secrets locaux (credentials Cloud Run, API keys XSIAM)
+.secrets.local.md
+.env
+.env.local
+*.pem
+*.key
+
+# Discovery outputs (dumps JSON post-ingestion, potentiellement volumineux)
+validation/discovery/
+validation/discovery-results.md
+
+# Screenshots démo (à stocker ailleurs, souvent non-versionnables)
+narratif/screenshots/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup du script deploy si le user rebuild localement
+sims/
+
+# Draw.io backup files (le .drawio est versionné, pas les .bkp)
+*.drawio.bkp
+
+# Logs
+*.log

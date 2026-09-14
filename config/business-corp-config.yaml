@@ -1,0 +1,165 @@
+# ============================================================
+# Business Corp — Source de vérité unique pour la démo Exposure Management
+# ============================================================
+#
+# Ce fichier décrit :
+#   1. Les assets custom à AJOUTER aux 12 servers natifs de chaque sim
+#      (assets narratifs qui n'existent pas dans EXTRA_SERVER_SEED des sims)
+#   2. Le pinning des paires (asset, CVE) pour garantir que les 6 hero cases
+#      apparaissent bien dans XSIAM après ingestion
+#
+# Workflow d'utilisation :
+#   1. Éditer ce fichier
+#   2. `python config/sync-config-to-sims.py` — génère business_corp_overrides.py
+#      dans chaque fork sim (chemins configurables dans le script)
+#   3. `cd <fork-rapid7> && bash deploy-cloudrun.sh` (idem cyberwatch)
+#   4. Attendre 5-15 min ingestion XSIAM
+#   5. Valider via runbook/08-validation-checklist.md
+#
+# Format des CVE : utiliser l'ID canonique CVE-YYYY-NNNN. Toutes les CVE
+# référencées ici doivent exister dans le catalogue du sim source
+# (voir config/catalogs-inventory.md pour la liste des 40 CVE de chaque sim).
+# ============================================================
+
+version: 1
+company: business.org
+
+# ------------------------------------------------------------
+# 1. EXTRA ASSETS — actifs custom ajoutés au-delà des 12 natifs
+# ------------------------------------------------------------
+#
+# Ces assets sont ajoutés à EXTRA_SERVER_SEED dans chaque sim.
+# Format aligné avec ce que chaque sim attend :
+#   - Rapid7 : (hostname, ip, os_name, site_id)
+#   - Cyberwatch : (hostname, ip, os_name, category, description, group_ids)
+#
+# `zone_hint` et `owner_hint` sont documentaires (pour runbook 05 tagging).
+# Ils NE SONT PAS injectés dans les sims (car les sims n'ont pas ces champs)
+# — le tagging XSIAM se fait après ingestion via `bulk-tag-assets.py`.
+# ------------------------------------------------------------
+
+extra_assets:
+
+  - hostname: srv-portail.business.org
+    ip: 10.10.20.61
+    os: Ubuntu 22.04 LTS
+    site_id: 1        # Rapid7 : HQ Paris
+    cw_category: server
+    cw_description: "Portail public de transfert de fichiers (type MOVEit)"
+    cw_groups: [601, 611, 621]   # PROD / Web / Paris
+    zone_hint: dmz-web
+    owner_hint: appdev
+    tier_hint: 1
+    inject_in: [rapid7, cyberwatch]
+
+  - hostname: srv-adfs-01.business.org
+    ip: 10.10.20.62
+    os: Windows Server 2022
+    site_id: 1
+    cw_category: server
+    cw_description: "AD Federation Services (SSO SAML/OIDC)"
+    cw_groups: [601, 610, 621]   # PROD / (non-web) / Paris
+    zone_hint: tier0
+    owner_hint: secops
+    tier_hint: 0
+    inject_in: [rapid7, cyberwatch]
+
+  - hostname: srv-print.business.org
+    ip: 10.10.20.63
+    os: Windows Server 2016
+    site_id: 1
+    cw_category: server
+    cw_description: "Print server corporate (souvent oublié patch)"
+    cw_groups: [601, 611, 621]
+    zone_hint: infra
+    owner_hint: it-corp
+    tier_hint: 3
+    inject_in: [rapid7]
+
+  - hostname: smtp-relay.business.org
+    ip: 10.10.20.64
+    os: Debian 12
+    site_id: 1
+    cw_category: server
+    cw_description: "Relais SMTP sortant"
+    cw_groups: [601, 611, 621]
+    zone_hint: dmz-edge
+    owner_hint: it-corp
+    tier_hint: 2
+    inject_in: [rapid7, cyberwatch]
+
+# ------------------------------------------------------------
+# 2. HERO PINNING — garantir des paires (asset, CVE) précises
+# ------------------------------------------------------------
+#
+# Pour chaque hero case du narratif, on garantit qu'une CVE spécifique est
+# assignée à un asset spécifique. Le patch dans generators/assets.py ajoute
+# ces CVEs à la liste `r.sample(...)` avant retour.
+#
+# `source` indique dans quel sim on force le pinning. Peut être :
+#   - rapid7      : seulement dans Rapid7 sim
+#   - cyberwatch  : seulement dans Cyberwatch sim
+#   - both        : dans les 2 (utile pour démontrer dédup Cortex)
+#
+# Vérifier que la CVE existe bien dans le catalogue cible :
+#   - Rapid7 : VULN_CATALOG_SEED (40 CVE — voir config/catalogs-inventory.md)
+#   - Cyberwatch : CVE_CATALOG_SEED (40 CVE — mêmes CVE globalement)
+# ------------------------------------------------------------
+
+hero_pinning:
+
+  # Hero 1 — Urgence Périmètre (CVRS ≥ 90 + Internet Exposed)
+  - asset: srv-vpn.business.org
+    cves: [CVE-2024-3400]        # PAN-OS GlobalProtect
+    source: both
+    narrative: "Urgence Périmètre — VPN box exposé, exploitation active"
+
+  # Hero 2 — Arme aux mains de l'ennemi (KEV + Internet Exposed)
+  - asset: srv-mail.business.org
+    cves: [CVE-2021-26855]       # ProxyLogon
+    source: rapid7
+    narrative: "KEV — Exchange exposé, ProxyLogon dans catalogue CISA"
+
+  # Hero 3 — Le Maillon Faible (CVSS ≥ 8 + Compensating Control = None)
+  # Note : pas de CVE ESXi native dans les catalogues, on utilise Zerologon
+  # sur esxi-01 comme "proxy" narratif (l'idée est le CVSS élevé sur asset
+  # sans agent XDR — la CVE exacte importe moins que le contexte compensating)
+  - asset: esxi-01.business.org
+    cves: [CVE-2020-1472]        # Zerologon (proxy narratif)
+    source: cyberwatch
+    narrative: "Maillon Faible — appliance sans agent XDR, CVSS 10"
+
+  # Hero 4 — Menace Imminente EPSS (EPSS > 90%)
+  - asset: alice.business.org
+    cves: [CVE-2022-30190]       # Follina
+    source: cyberwatch           # Cyberwatch a EPSS natif
+    narrative: "EPSS 97% — Follina sur poste Windows recevant emails"
+
+  # Hero 5 — Risque Confirmé Workload (CVRS ≥ 70 + Package-in-use)
+  - asset: srv-ci.business.org
+    cves: [CVE-2021-44228]       # Log4Shell
+    source: rapid7
+    narrative: "Log4Shell sur CI Java — Package In Use validé par AST"
+
+  # Hero 6 — Nettoyage de Surface (CVRS 60-80 + Internet Exposed)
+  # On utilise une CVE modérée présente dans les 2 catalogues
+  - asset: srv-portail.business.org
+    cves: [CVE-2016-3189]        # bzip2 use-after-free (modéré)
+    source: rapid7
+    narrative: "Vuln modérée sur portail public — hygiène ASM"
+
+# ------------------------------------------------------------
+# 3. CONFIGURATION SYNC — chemins des forks locaux
+# ------------------------------------------------------------
+#
+# Renseigner les chemins où vos forks locaux des 2 sims sont clonés.
+# Le script sync-config-to-sims.py y déposera business_corp_overrides.py.
+# ------------------------------------------------------------
+
+sync_targets:
+  rapid7:
+    fork_path: C:\Users\jcourtemanch\Documents\dev\demo\sims\Rapid7InsightVM-simul
+    overrides_dest: simulator/generators/business_corp_overrides.py
+  cyberwatch:
+    fork_path: C:\Users\jcourtemanch\Documents\dev\demo\sims\cyberwatch-simul
+    overrides_dest: simulator/generators/business_corp_overrides.py
