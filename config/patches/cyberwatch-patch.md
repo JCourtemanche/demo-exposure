@@ -102,9 +102,32 @@ curl -u cyberwatch-access-key:cyberwatch-secret-key "http://localhost:5002/api/v
 # (adapter selon la structure exacte de retour Cyberwatch)
 ```
 
-## Note sur les groupes Cyberwatch
+## Note sur le format des tuples Cyberwatch
 
-Les `cw_groups` dans le YAML permettent de rattacher les extra assets aux groupes existants du sim (601 PROD, 602 STAGING, 603 DEV, 610 non-web tier, 611 Web tier, 620 Lyon, 621 Paris). Vérifier la liste exacte dans `simulator/generators/base.py` du fork.
+⚠️ **5 éléments par tuple**, pas 6 :
+```python
+(hostname, os_key, category, description, group_ids)
+```
+- Pas de champ `ip` (calculé par `_extra_assets` via `10.10.{20 + idx//10}.{50 + idx}`)
+- `os_key` = clé de `OS_CATALOG` dans `simulator/generators/base.py`, PAS le nom OS complet
+- `category` ∈ `['server', 'desktop', 'hypervisor', 'network_device', 'cloud', 'mobile']`
+
+### Clés OS_CATALOG valides
+
+`windows_10`, `windows_11`, `windows_2019`, `windows_2022`, `ubuntu_2204_64`, `ubuntu_2004_64`, `debian_12_64`, `macos_ventura`, `macos_sonoma`, `ios_17`.
+
+### IDs de groupes Cyberwatch (base.py)
+
+| ID | Nom |
+|----|-----|
+| 601 | ENV_PRODUCTION |
+| 602 | ENV_STAGING |
+| 603 | ENV_DEV |
+| 610 | APP_Web |
+| 611 | APP_Database |
+| 612 | APP_Endpoint |
+| 620 | SITE_Paris |
+| 621 | SITE_Lyon |
 
 ## Rollback
 

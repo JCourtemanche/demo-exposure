@@ -91,12 +91,16 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
                 f"  # {a.get('zone_hint','')}/{a.get('owner_hint','')}"
             )
     elif target_sim == "cyberwatch":
+        # Cyberwatch tuple format (5 éléments) : hostname, os_key, category, description, group_ids
+        # IP calculée dans _extra_assets, PAS dans le tuple
         for a in extras:
             groups = a.get("cw_groups", [])
             lines.append(
-                f"    ({a['hostname']!r}, {a['ip']!r}, {a['os']!r}, "
+                f"    ({a['hostname']!r}, "
+                f"{a.get('cw_os_key', 'ubuntu_2204_64')!r}, "
                 f"{a.get('cw_category', 'server')!r}, "
-                f"{a.get('cw_description', '')!r}, {groups!r}),"
+                f"{a.get('cw_description', '')!r}, "
+                f"{groups!r}),"
                 f"  # {a.get('zone_hint','')}/{a.get('owner_hint','')}"
             )
     lines.append("]")

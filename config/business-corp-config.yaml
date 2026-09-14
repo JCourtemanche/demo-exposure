@@ -40,13 +40,27 @@ company: business.org
 
 extra_assets:
 
+  # Champs par sim :
+  #   Rapid7    (tuple 4) : hostname, ip, os (nom complet), site_id
+  #   Cyberwatch(tuple 5) : hostname, cw_os_key (clé OS_CATALOG), cw_category, cw_description, cw_groups
+  # (l'IP Cyberwatch est calculée par _extra_assets, pas dans le tuple)
+  #
+  # cw_os_key valides : windows_10, windows_11, windows_2019, windows_2022,
+  #                     ubuntu_2204_64, ubuntu_2004_64, debian_12_64,
+  #                     macos_ventura, macos_sonoma, ios_17
+  # cw_groups valides  : 601=PROD, 602=STAGING, 603=DEV,
+  #                      610=Web, 611=Database, 612=Endpoint,
+  #                      620=Paris, 621=Lyon
+  # cw_category valides: server, desktop, hypervisor, network_device, cloud, mobile
+
   - hostname: srv-portail.business.org
     ip: 10.10.20.61
     os: Ubuntu 22.04 LTS
-    site_id: 1        # Rapid7 : HQ Paris
+    site_id: 1
+    cw_os_key: ubuntu_2204_64
     cw_category: server
     cw_description: "Portail public de transfert de fichiers (type MOVEit)"
-    cw_groups: [601, 611, 621]   # PROD / Web / Paris
+    cw_groups: [601, 610, 620]   # PROD / Web / Paris
     zone_hint: dmz-web
     owner_hint: appdev
     tier_hint: 1
@@ -56,9 +70,10 @@ extra_assets:
     ip: 10.10.20.62
     os: Windows Server 2022
     site_id: 1
+    cw_os_key: windows_2022
     cw_category: server
     cw_description: "AD Federation Services (SSO SAML/OIDC)"
-    cw_groups: [601, 610, 621]   # PROD / (non-web) / Paris
+    cw_groups: [601, 620]        # PROD / Paris (pas de group applicatif spécifique)
     zone_hint: tier0
     owner_hint: secops
     tier_hint: 0
@@ -66,23 +81,25 @@ extra_assets:
 
   - hostname: srv-print.business.org
     ip: 10.10.20.63
-    os: Windows Server 2016
+    os: Windows Server 2019
     site_id: 1
+    cw_os_key: windows_2019       # fallback : OS_CATALOG n'a pas 2016
     cw_category: server
     cw_description: "Print server corporate (souvent oublié patch)"
-    cw_groups: [601, 611, 621]
+    cw_groups: [601, 620]         # PROD / Paris
     zone_hint: infra
     owner_hint: it-corp
     tier_hint: 3
-    inject_in: [rapid7]
+    inject_in: [rapid7]           # Rapid7 seul suffit (visible en scan réseau)
 
   - hostname: smtp-relay.business.org
     ip: 10.10.20.64
     os: Debian 12
     site_id: 1
+    cw_os_key: debian_12_64
     cw_category: server
     cw_description: "Relais SMTP sortant"
-    cw_groups: [601, 611, 621]
+    cw_groups: [601, 620]         # PROD / Paris
     zone_hint: dmz-edge
     owner_hint: it-corp
     tier_hint: 2
