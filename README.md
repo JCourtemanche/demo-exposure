@@ -100,6 +100,7 @@ demo-exposure/
 │   ├── 01-prerequisites.md
 │   ├── 02-deploy-simulators.md      # Mode vanilla (sims non-patchés)
 │   ├── 02b-patch-sims-with-config.md ⭐ Mode Business Corp (recommandé)
+│   ├── 02c-deploy-vanilla-for-comparison.md # Deploy vanilla // pour A/B testing
 │   ├── 03-configure-xsiam-rapid7.md
 │   ├── 04-configure-xsiam-cyberwatch.md
 │   ├── 05-create-tags-and-groups.md
