@@ -83,6 +83,7 @@ demo-exposure/
 │   ├── bootstrap-gcp-iam.sh         # Droits IAM GCP (une fois)
 │   ├── apply-patches.py             # Auto-patch les 2 forks (idempotent)
 │   ├── deploy-full.sh               # Pipeline complet clone→patch→sync→deploy
+│   ├── deploy-vanilla-parallel.sh   # Deploy vanilla // pour A/B testing
 │   ├── smoke-test.sh                # Sanity checks post-deploy
 │   └── init-git-and-push.sh         # Push initial vers GitHub
 │
