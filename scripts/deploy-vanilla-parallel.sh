@@ -91,8 +91,24 @@ rename_service() {
 rename_service "$SIMS_VANILLA_DIR/Rapid7InsightVM-simul" "rapid7-nexpose-simulator"
 rename_service "$SIMS_VANILLA_DIR/cyberwatch-simul" "cyberwatch-simulator"
 
-# --- 4. Deploy les 2 vanilla ---
+# --- 3b. Créer les repos Artifact Registry -vanilla si absents ---
 echo ""
+echo "🏗️  Vérification / création des repos Artifact Registry -vanilla..."
+for repo in rapid7-nexpose-simulator-vanilla cyberwatch-simulator-vanilla; do
+  if gcloud artifacts repositories describe "$repo" --location="$REGION" --quiet >/dev/null 2>&1; then
+    echo "  ✓ $repo (existe)"
+  else
+    echo "  → création $repo..."
+    gcloud artifacts repositories create "$repo" \
+      --repository-format=docker \
+      --location="$REGION" \
+      --description="Vanilla sim (comparaison A/B Business Corp)" \
+      --quiet
+  fi
+done
+echo ""
+
+# --- 4. Deploy les 2 vanilla ---
 echo "☁️  [1/2] Deploy Rapid7 vanilla..."
 cd "$SIMS_VANILLA_DIR/Rapid7InsightVM-simul"
 bash deploy-cloudrun.sh

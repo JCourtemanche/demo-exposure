@@ -52,7 +52,7 @@ CYBERWATCH_FORK="$SIMS_DIR/cyberwatch-simul"
 
 PYTHON_BIN="$(command -v python3 || command -v python || true)"
 
-echo "🚀 Deploy Business Corp demo — pipeline complet (7 étapes)"
+echo "🚀 Deploy Business Corp demo — pipeline complet (8 étapes)"
 echo "  Repo         : $REPO_ROOT"
 echo "  Sims dir     : $SIMS_DIR"
 echo "  Region       : $REGION"
@@ -106,8 +106,27 @@ echo "🔄 [5/6] Synchronisation config → business_corp_overrides.py..."
 "$PYTHON_BIN" "$REPO_ROOT/config/sync-config-to-sims.py"
 echo ""
 
+# --- 5b. Créer les repos Artifact Registry si absents (idempotent) ---
+# Le deploy-cloudrun.sh upstream a un bug — il prétend que le repo existe
+# alors qu'il ne l'a pas créé. Sur un nouveau projet GCP, le push échoue
+# avec "name unknown: Repository not found". On crée donc explicitement ici.
+echo "🏗️  [5b/7] Vérification / création des repos Artifact Registry..."
+for repo in rapid7-nexpose-simulator cyberwatch-simulator; do
+  if gcloud artifacts repositories describe "$repo" --location="$REGION" --quiet >/dev/null 2>&1; then
+    echo "  ✓ $repo (existe)"
+  else
+    echo "  → création $repo..."
+    gcloud artifacts repositories create "$repo" \
+      --repository-format=docker \
+      --location="$REGION" \
+      --description="Sim image repository (Business Corp demo)" \
+      --quiet
+  fi
+done
+echo ""
+
 # --- 6. Deploy Cloud Run ---
-echo "☁️  [6/6] Déploiement Cloud Run..."
+echo "☁️  [6/7] Déploiement Cloud Run..."
 
 echo ""
 echo "  → Rapid7 InsightVM simulator..."
@@ -133,7 +152,7 @@ cd "$REPO_ROOT"
 echo ""
 
 # --- 7. Rendre les 2 services invocables publiquement (idempotent) ---
-echo "🌐 [7/7] Autorisation invocations publiques (allUsers → run.invoker)..."
+echo "🌐 [7/8] Autorisation invocations publiques (allUsers → run.invoker)..."
 for svc in rapid7-nexpose-simulator cyberwatch-simulator; do
   if gcloud run services add-iam-policy-binding "$svc" \
        --region="$REGION" \
