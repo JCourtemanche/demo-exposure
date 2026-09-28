@@ -1,4 +1,4 @@
-# Business Corp — Architecture réseau (Mermaid)
+# Business Corp — Architecture réseau (v1 Rapid7 only)
 
 Diagramme de l'infrastructure fictive utilisée pour la démo. Version textuelle éditable (à convertir en draw.io ou capture PNG pour les slides).
 
@@ -6,53 +6,47 @@ Diagramme de l'infrastructure fictive utilisée pour la démo. Version textuelle
 
 ```mermaid
 flowchart TB
-    Internet((Internet)) --> WAF[WAF F5 Big-IP]
+    Internet((Internet<br/>203.0.113.0/24)) --> WAF[WAF F5 Big-IP]
     Internet --> NGFW[PANW NGFW Périmétrique]
 
-    subgraph DMZ_WEB["zone-dmz-web (WAF + NGFW + XDR)"]
-        Web1[srv-web-01<br/>Portail client]
-        RevProxy[Reverse Proxy Nginx]
+    subgraph DMZ_WEB["zone-dmz-web (WAF + NGFW + XDR — 3 assets Internet Exposed)"]
+        Web1[srv-web-01<br/>203.0.113.10 · WinSrv 2019<br/>Hero 4: Spring4Shell]
+        Web2[srv-web-02<br/>203.0.113.11 · Ubuntu 22.04]
+        Portail[srv-portail<br/>203.0.113.30 · Ubuntu 22.04<br/>Hero 6: bzip2]
     end
 
-    subgraph DMZ_EDGE["zone-dmz-edge (NGFW seul, PAS d'XDR)"]
-        VPN[srv-vpn<br/>Boîtier VPN Ubuntu 20.04<br/>tag rôle: vpn_gateway]
-        SMTP[smtp-relay<br/>Relais SMTP]
+    subgraph DMZ_EDGE["zone-dmz-edge (NGFW seul — 2 assets exposés)"]
+        VPN[srv-vpn<br/>203.0.113.5 · Ubuntu 20.04<br/>Hero 1: CVE-2024-3400<br/>PAS d'agent XDR]
+        SMTP[smtp-relay<br/>203.0.113.40 · Debian 12]
     end
 
     WAF --> DMZ_WEB
     NGFW --> DMZ_EDGE
 
-    subgraph TIER0["zone-tier0 (XDR + accès restreint)"]
-        AD[srv-ad-01<br/>Active Directory]
-        ADFS[ADFS]
+    subgraph TIER0["zone-tier0 (XDR sur AD, PAS sur ADFS)"]
+        AD[srv-ad-01<br/>WinSrv 2022<br/>Active Directory]
+        ADFS[srv-adfs-01<br/>WinSrv 2022<br/>Hero 3: Zerologon<br/>PAS d'agent XDR]
     end
 
     subgraph TIER1["zone-tier1 (XDR)"]
-        DB[srv-db-01<br/>PostgreSQL]
-        Mail[srv-mail<br/>Exchange 2019]
-        FS[Fileserver]
+        DB1[srv-db-01<br/>Debian 12 · PostgreSQL]
+        DB2[srv-db-02<br/>Debian 12 · Réplica]
+        Mail[srv-mail<br/>203.0.113.20 · WinSrv 2019<br/>Hero 2: ProxyLogon]
+        FS[srv-fs-01<br/>WinSrv 2019]
+        Mon[srv-monitoring<br/>Debian 12]
     end
 
     subgraph INFRA["zone-infra (PAS d'XDR — appliances)"]
-        ESXi[esxi-01<br/>VMware vSphere]
-        NAS[nas-01<br/>QNAP]
-        Mon[Monitoring]
+        Print[srv-print<br/>WinSrv 2019<br/>Print server oublié]
     end
 
-    subgraph CICD["zone-cicd (XDR)"]
-        CI[srv-ci<br/>GitLab CI + Java runtime]
+    subgraph CICD["zone-cicd (XDR + AST)"]
+        CI[srv-ci<br/>Ubuntu 22.04<br/>Hero 5: Log4Shell Java runtime]
     end
 
-    subgraph DEVS["zone-devs-linux (~10 postes)"]
-        DevLnx[Charlie / David / Emma / Flora + 6 générés<br/>Ubuntu 22.04 / Debian 12]
-    end
-
-    subgraph EPWIN["zone-endpoints-win (~200 postes)"]
-        EpWin[Workstations Windows 10/11<br/>Corporate parc]
-    end
-
-    subgraph CLOUD["zone-cloud (optionnel ASM)"]
-        CloudSrv[Cloud workloads AWS/Azure]
+    subgraph CLOUD["zone-cloud"]
+        CloudLB[cloud-lb-01<br/>Ubuntu 22.04]
+        CloudApp[cloud-app-01<br/>Debian 12]
     end
 
     DMZ_WEB -.-> TIER1
@@ -60,40 +54,38 @@ flowchart TB
     TIER0 -.-> TIER1
     TIER1 -.-> INFRA
     CICD -.-> TIER1
-    DEVS -.-> CICD
-    EPWIN -.-> AD
 
     classDef exposed fill:#ffcccc,stroke:#cc0000,stroke-width:2px
     classDef critical fill:#ffe6cc,stroke:#ff8800,stroke-width:2px
     classDef nocontrol fill:#fff2cc,stroke:#d6b656,stroke-width:2px
     classDef normal fill:#dae8fc,stroke:#6c8ebf,stroke-width:1px
 
-    class Web1,RevProxy,VPN,SMTP exposed
-    class AD,ADFS,DB,Mail critical
-    class ESXi,NAS,Mon,VPN,SMTP nocontrol
-    class DevLnx,EpWin,CI,Cloud,FS,CloudSrv normal
+    class Web1,Web2,Portail,VPN,SMTP,Mail exposed
+    class AD,ADFS,DB1,DB2,FS critical
+    class Print,VPN,ADFS nocontrol
+    class CI,Mon,CloudLB,CloudApp normal
 ```
 
 ## Légende
 
-- **Rouge** (`exposed`) : actifs exposés Internet — cibles principales du funnel règles 1, 2, 4, 6
-- **Orange** (`critical`) : actifs Tier 0/1 critiques — porteurs de la Vulnerability Policy `POL-BusinessCorp-Tier0-Escalate`
-- **Jaune** (`nocontrol`) : actifs sans Cortex XDR agent — matérialisent règle 3 "Maillon Faible"
+- **Rouge** (`exposed`) : actifs avec IP publique — cibles principales des règles R1, R2, R4, R7
+- **Orange** (`critical`) : actifs Tier 0/1 critiques — porteurs de la Vulnerability Policy R3 (Maillon faible interne)
+- **Jaune** (`nocontrol`) : actifs sans Cortex XDR agent — matérialisent R3 "Maillon Faible" (ADFS, print) ou R2 "Urgence périmètre" (VPN)
 - **Bleu** (`normal`) : actifs standards protégés par XDR
 
 ## Chiffres clés à afficher en slide
 
 | Métrique | Valeur |
 |----------|--------|
-| Total actifs Business Corp | ~250 |
-| Actifs "focus" (porteurs de vulns narratives) | 25 |
-| Endpoints Windows corporate | ~200 |
-| Postes dev Linux | ~10 |
-| Zones logiques | 9 |
-| Compensating controls déclarés | 4 (+ XDR auto) |
-| Vulnerability Policies custom | 1 |
+| Total actifs Business Corp (focus) | 16 |
+| Actifs "personas" (users) supplémentaires | ~6 (hostname court) |
+| Zones logiques | 7 (dmz-web, dmz-edge, tier0, tier1, infra, cicd, cloud) |
+| Actifs avec IP publique (Internet Exposed) | 6 |
+| Compensating controls déclarés | 4 (WAF F5 + PANW NGFW + XDR Windows + XDR Linux) |
+| Vulnerability Policies R1-R8 | 8 (CVRS-centric) |
 | Hero cases attendues après funnel | 6 |
-| Vulnerabilités brutes avant funnel (Rapid7 + Cyberwatch) | ~2000+ (dont ~150 marquées "critique") |
+| Vulnerabilités brutes avant funnel (Rapid7) | ~150-200 |
+| Cases actionnables après funnel | 6-15 |
 
 ## Conversion vers draw.io / slide
 
@@ -103,7 +95,9 @@ flowchart TB
 
 ## Notes de mise à jour
 
-- Les serveurs `srv-web-01`, `srv-db-01`, `srv-mail`, `srv-vpn`, `esxi-01`, `nas-01`, `srv-ci` correspondent aux noms générés par `EXTRA_SERVER_SEED` des 2 sims
-- Les personas utilisateurs Alice/Bob (Windows) et Charlie/David/Emma/Flora (Linux) proviennent de `xsiam-shared-personas`
+- Les serveurs `srv-web-01/02`, `srv-db-01/02`, `srv-mail`, `srv-ad-01`, `srv-fs-01`, `srv-vpn`, `srv-monitoring`, `srv-ci`, `cloud-lb-01`, `cloud-app-01` correspondent aux noms générés par `EXTRA_SERVER_SEED` natif du sim Rapid7
+- Les personas utilisateurs Alice/Bob (Windows) et Charlie/David/Emma/Flora (Linux) proviennent de `xsiam-shared-personas` mais ont un hostname court sans `.business.org` — non représentées dans le diagramme
 - `srv-portail`, `srv-adfs-01`, `srv-print`, `smtp-relay` sont **injectés via `config/business-corp-config.yaml`** (extra_assets custom) — voir `runbook/02b`
-- WAF F5, NGFW hardware, reverse proxy sont **des ajouts purement narratifs** (représentés dans XSIAM uniquement comme compensating controls attachés aux groupes d'assets, pas comme assets)
+- Les IPs publiques (203.0.113.0/24) sont injectées via le YAML `additional_public_ips` et enrichies dans `addresses` par le bloc 6 du patch `apply-patches.py`
+- WAF F5 et NGFW hardware sont **des ajouts purement narratifs** (représentés dans XSIAM uniquement comme compensating controls attachés aux groupes d'assets, pas comme assets)
+- **Cyberwatch retiré en v1** — les assets exclusifs Cyberwatch (esxi-01, nas-01) ne sont plus représentés

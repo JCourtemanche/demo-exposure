@@ -1,4 +1,14 @@
-# Runbook 04 — Configurer l'intégration Cyberwatch dans XSIAM
+# Runbook 04 — Configurer l'intégration Cyberwatch dans XSIAM (⚠️ OPTIONNEL v1, ROADMAP v2)
+
+⚠️ **Ce runbook est retiré du parcours v1**. Le pack Cyberwatch (Partner Contribution) alimente `cyberwatch_generic_alert_raw` mais **pas `asset_inventory` d'Exposure Management** — il ne participe donc pas au CVRS ni aux 8 policies R1-R8.
+
+La démo v1 fonctionne intégralement sur **Rapid7 uniquement** (16 assets, 6 hero cases, 8 policies CVRS). Voir `narratif/hero-cases.md`.
+
+**Roadmap v2** : réintégrer Cyberwatch via la Vulnerability Ingest API custom (Plan B ci-dessous) → alimenterait `asset_inventory` proprement.
+
+---
+
+# Guide historique (v2 roadmap)
 
 Objectif : brancher le simulateur Cyberwatch comme 2e source de vulnérabilités. Deux chemins possibles selon disponibilité du content pack.
 

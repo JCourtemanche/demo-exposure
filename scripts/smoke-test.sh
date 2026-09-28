@@ -176,5 +176,8 @@ fi
 echo ""
 echo "✅ Smoke test terminé."
 echo ""
+echo "⏱️  Rappel : après avoir configuré Rapid7 dans XSIAM, prévoir ~2h"
+echo "   pour que uvm_findings se peuple avec CVRS + KEV + EPSS enrichis."
+echo ""
 echo "Si tout est ✓ : passer à runbook/03-configure-xsiam-rapid7.md"
 echo "Si ⚠️ ou ❌  : consulter runbook/02b-patch-sims-with-config.md § Troubleshooting"

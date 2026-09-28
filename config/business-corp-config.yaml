@@ -2,18 +2,25 @@
 # Business Corp — Source de vérité unique pour la démo Exposure Management
 # ============================================================
 #
+# ⚠️  v1 : Rapid7 InsightVM est la SEULE source de vulnérabilités active.
+# Cyberwatch a été abandonné en v1 (pack Partner Contribution alimente
+# `cyberwatch_generic_alert_raw`, PAS `asset_inventory` d'Exposure
+# Management). Il reste dans la roadmap v2 via la Vulnerability Ingest API.
+# → Les champs cw_* ci-dessous sont conservés pour compatibilité future v2.
+# → Le hero pinning ne cible plus que `source: rapid7`.
+#
 # Ce fichier décrit :
-#   1. Les assets custom à AJOUTER aux 12 servers natifs de chaque sim
-#      (assets narratifs qui n'existent pas dans EXTRA_SERVER_SEED des sims)
+#   1. Les assets custom à AJOUTER aux 12 servers natifs du sim Rapid7
 #   2. Le pinning des paires (asset, CVE) pour garantir que les 6 hero cases
 #      apparaissent bien dans XSIAM après ingestion
 #
 # Workflow d'utilisation :
 #   1. Éditer ce fichier
 #   2. `python config/sync-config-to-sims.py` — génère business_corp_overrides.py
-#      dans chaque fork sim (chemins configurables dans le script)
-#   3. `cd <fork-rapid7> && bash deploy-cloudrun.sh` (idem cyberwatch)
-#   4. Attendre 5-15 min ingestion XSIAM
+#      dans le fork sim
+#   3. `cd <fork-rapid7> && bash deploy-cloudrun.sh`
+#   4. Attendre 5-15 min ingestion sim → puis ~2h supplémentaires pour que
+#      Cortex peuple `uvm_findings` (délai d'ingestion Vulnerability Intelligence)
 #   5. Valider via runbook/08-validation-checklist.md
 #
 # Format des CVE : utiliser l'ID canonique CVE-YYYY-NNNN. Toutes les CVE
@@ -25,85 +32,73 @@ version: 1
 company: business.org
 
 # ------------------------------------------------------------
-# 1. EXTRA ASSETS — actifs custom ajoutés au-delà des 12 natifs
+# 1. EXTRA ASSETS — actifs custom ajoutés au-delà des 12 natifs Rapid7
 # ------------------------------------------------------------
 #
-# Ces assets sont ajoutés à EXTRA_SERVER_SEED dans chaque sim.
-# Format aligné avec ce que chaque sim attend :
-#   - Rapid7 : (hostname, ip, os_name, site_id)
-#   - Cyberwatch : (hostname, ip, os_name, category, description, group_ids)
+# Ces assets sont ajoutés à EXTRA_SERVER_SEED dans le sim Rapid7.
+# Format Rapid7 (tuple 4) : hostname, ip, os (nom complet), site_id
 #
 # `zone_hint` et `owner_hint` sont documentaires (pour runbook 05 tagging).
-# Ils NE SONT PAS injectés dans les sims (car les sims n'ont pas ces champs)
+# Ils NE SONT PAS injectés dans le sim (car le sim n'a pas ces champs)
 # — le tagging XSIAM se fait après ingestion via `bulk-tag-assets.py`.
+#
+# Les champs cw_* sont conservés pour compatibilité future v2 (Cyberwatch).
 # ------------------------------------------------------------
 
 extra_assets:
-
-  # Champs par sim :
-  #   Rapid7    (tuple 4) : hostname, ip, os (nom complet), site_id
-  #   Cyberwatch(tuple 5) : hostname, cw_os_key (clé OS_CATALOG), cw_category, cw_description, cw_groups
-  # (l'IP Cyberwatch est calculée par _extra_assets, pas dans le tuple)
-  #
-  # cw_os_key valides : windows_10, windows_11, windows_2019, windows_2022,
-  #                     ubuntu_2204_64, ubuntu_2004_64, debian_12_64,
-  #                     macos_ventura, macos_sonoma, ios_17
-  # cw_groups valides  : 601=PROD, 602=STAGING, 603=DEV,
-  #                      610=Web, 611=Database, 612=Endpoint,
-  #                      620=Paris, 621=Lyon
-  # cw_category valides: server, desktop, hypervisor, network_device, cloud, mobile
 
   - hostname: srv-portail.business.org
     ip: 10.10.20.61
     os: Ubuntu 22.04 LTS
     site_id: 1
-    cw_os_key: ubuntu_2204_64
-    cw_category: server
-    cw_description: "Portail public de transfert de fichiers (type MOVEit)"
-    cw_groups: [601, 610, 620]   # PROD / Web / Paris
     zone_hint: dmz-web
     owner_hint: appdev
     tier_hint: 1
-    inject_in: [rapid7, cyberwatch]
+    inject_in: [rapid7]
+    # v2 (Cyberwatch) — préservé pour usage futur
+    cw_os_key: ubuntu_2204_64
+    cw_category: server
+    cw_description: "Portail public de transfert de fichiers (type MOVEit)"
+    cw_groups: [601, 610, 620]
 
   - hostname: srv-adfs-01.business.org
     ip: 10.10.20.62
     os: Windows Server 2022
     site_id: 1
-    cw_os_key: windows_2022
-    cw_category: server
-    cw_description: "AD Federation Services (SSO SAML/OIDC)"
-    cw_groups: [601, 620]        # PROD / Paris (pas de group applicatif spécifique)
     zone_hint: tier0
     owner_hint: secops
     tier_hint: 0
-    inject_in: [rapid7, cyberwatch]
+    inject_in: [rapid7]
+    cw_os_key: windows_2022
+    cw_category: server
+    cw_description: "AD Federation Services (SSO SAML/OIDC)"
+    cw_groups: [601, 620]
 
   - hostname: srv-print.business.org
     ip: 10.10.20.63
     os: Windows Server 2019
     site_id: 1
-    cw_os_key: windows_2019       # fallback : OS_CATALOG n'a pas 2016
-    cw_category: server
-    cw_description: "Print server corporate (souvent oublié patch)"
-    cw_groups: [601, 620]         # PROD / Paris
     zone_hint: infra
     owner_hint: it-corp
     tier_hint: 3
-    inject_in: [rapid7]           # Rapid7 seul suffit (visible en scan réseau)
+    inject_in: [rapid7]
+    cw_os_key: windows_2019
+    cw_category: server
+    cw_description: "Print server corporate (souvent oublié patch)"
+    cw_groups: [601, 620]
 
   - hostname: smtp-relay.business.org
     ip: 10.10.20.64
     os: Debian 12
     site_id: 1
-    cw_os_key: debian_12_64
-    cw_category: server
-    cw_description: "Relais SMTP sortant"
-    cw_groups: [601, 620]         # PROD / Paris
     zone_hint: dmz-edge
     owner_hint: it-corp
     tier_hint: 2
-    inject_in: [rapid7, cyberwatch]
+    inject_in: [rapid7]
+    cw_os_key: debian_12_64
+    cw_category: server
+    cw_description: "Relais SMTP sortant"
+    cw_groups: [601, 620]
 
 # ------------------------------------------------------------
 # 2. HERO PINNING — garantir des paires (asset, CVE) précises
@@ -113,14 +108,8 @@ extra_assets:
 # assignée à un asset spécifique. Le patch dans generators/assets.py ajoute
 # ces CVEs à la liste `r.sample(...)` avant retour.
 #
-# `source` indique dans quel sim on force le pinning. Peut être :
-#   - rapid7      : seulement dans Rapid7 sim
-#   - cyberwatch  : seulement dans Cyberwatch sim
-#   - both        : dans les 2 (utile pour démontrer dédup Cortex)
-#
-# Vérifier que la CVE existe bien dans le catalogue cible :
-#   - Rapid7 : VULN_CATALOG_SEED (40 CVE — voir config/catalogs-inventory.md)
-#   - Cyberwatch : CVE_CATALOG_SEED (40 CVE — mêmes CVE globalement)
+# `source: rapid7` — v1 Rapid7 only.
+# `source: cyberwatch` ou `both` réservés v2 (Cyberwatch via API Ingest).
 # ------------------------------------------------------------
 
 hero_pinning:
@@ -128,8 +117,8 @@ hero_pinning:
   # Hero 1 — Urgence Périmètre (CVRS ≥ 90 + Internet Exposed)
   - asset: srv-vpn.business.org
     cves: [CVE-2024-3400]        # PAN-OS GlobalProtect
-    source: both
-    narrative: "Urgence Périmètre — VPN box exposé, exploitation active"
+    source: rapid7
+    narrative: "Urgence Périmètre — VPN box exposé, exploitation active (KEV)"
 
   # Hero 2 — Arme aux mains de l'ennemi (KEV + Internet Exposed)
   - asset: srv-mail.business.org
@@ -138,19 +127,22 @@ hero_pinning:
     narrative: "KEV — Exchange exposé, ProxyLogon dans catalogue CISA"
 
   # Hero 3 — Le Maillon Faible (CVSS ≥ 8 + Compensating Control = None)
-  # Note : pas de CVE ESXi native dans les catalogues, on utilise Zerologon
-  # sur esxi-01 comme "proxy" narratif (l'idée est le CVSS élevé sur asset
-  # sans agent XDR — la CVE exacte importe moins que le contexte compensating)
-  - asset: esxi-01.business.org
-    cves: [CVE-2020-1472]        # Zerologon (proxy narratif)
-    source: cyberwatch
-    narrative: "Maillon Faible — appliance sans agent XDR, CVSS 10"
+  # v1 : migré depuis esxi-01 (Cyberwatch-only) vers srv-adfs-01 (extra BC Rapid7).
+  # Narrative : ADFS Tier 0 identity federation, souvent traité comme appliance,
+  # pas d'agent Cortex XDR déployé → Zerologon (CVSS 10) exploitable en interne.
+  - asset: srv-adfs-01.business.org
+    cves: [CVE-2020-1472]        # Zerologon (Netlogon protocol vuln — pertinent pour ADFS)
+    source: rapid7
+    narrative: "Maillon Faible — ADFS Tier 0 sans agent XDR, Zerologon CVSS 10"
 
-  # Hero 4 — Menace Imminente EPSS (EPSS > 90%)
-  - asset: alice.business.org
-    cves: [CVE-2022-30190]       # Follina
-    source: cyberwatch           # Cyberwatch a EPSS natif
-    narrative: "EPSS 97% — Follina sur poste Windows recevant emails"
+  # Hero 4 — Menace Imminente EPSS (EPSS > 90% + Internet Exposed)
+  # v1 : migré depuis alice+Follina (Cyberwatch endpoint) vers srv-web-01+Spring4Shell.
+  # Narrative : serveur web DMZ exposé Internet, Spring4Shell CVSS 9.8 + EPSS élevé
+  # → exploitation attendue imminemment par scanners automatiques.
+  - asset: srv-web-01.business.org
+    cves: [CVE-2022-22965]       # Spring4Shell — CVSS 9.8, EPSS élevé, exposé
+    source: rapid7
+    narrative: "EPSS élevé — Spring4Shell sur serveur web DMZ, exploitation imminente"
 
   # Hero 5 — Risque Confirmé Workload (CVRS ≥ 70 + Package-in-use)
   - asset: srv-ci.business.org
@@ -159,14 +151,38 @@ hero_pinning:
     narrative: "Log4Shell sur CI Java — Package In Use validé par AST"
 
   # Hero 6 — Nettoyage de Surface (CVRS 60-80 + Internet Exposed)
-  # On utilise une CVE modérée présente dans les 2 catalogues
   - asset: srv-portail.business.org
     cves: [CVE-2016-3189]        # bzip2 use-after-free (modéré)
     source: rapid7
     narrative: "Vuln modérée sur portail public — hygiène ASM"
 
 # ------------------------------------------------------------
-# 3. CONFIGURATION SYNC (déprécié — géré par convention)
+# 3. INTERNET EXPOSURE — IPs publiques pour marquer les assets exposés
+# ------------------------------------------------------------
+#
+# Cortex Exposure Management évalue l'Internet Exposure via ASM/CNA/AST.
+# Sans addon ASM (Xpanse), Cortex peut néanmoins déduire l'exposition à
+# partir de la présence d'une IP publique dans le champ `addresses` de
+# l'asset ingéré.
+#
+# On enrichit donc les assets stratégiques (VPN, web DMZ, mail, portail,
+# smtp-relay) avec une IP publique en plus de leur IP privée. Le sim
+# émet ainsi `addresses: [{"ip": "10.10.20.51"}, {"ip": "203.0.113.10"}]`.
+#
+# Range utilisé : 203.0.113.0/24 (RFC 5737 TEST-NET-3, non-routable — safe
+# pour démo, aucun risque d'atteindre une vraie ressource).
+# ------------------------------------------------------------
+
+additional_public_ips:
+  srv-vpn.business.org:     203.0.113.5   # Hero 1 — VPN box
+  srv-web-01.business.org:  203.0.113.10  # Hero 4 — front web (Spring4Shell)
+  srv-web-02.business.org:  203.0.113.11  # front web redondant
+  srv-mail.business.org:    203.0.113.20  # Hero 2 — Exchange OWA (ProxyLogon)
+  srv-portail.business.org: 203.0.113.30  # Hero 6 — portail transfert
+  smtp-relay.business.org:  203.0.113.40  # relais mail sortant
+
+# ------------------------------------------------------------
+# 4. CONFIGURATION SYNC (déprécié — géré par convention)
 # ------------------------------------------------------------
 #
 # Les chemins des forks sont désormais résolus automatiquement par
@@ -174,9 +190,8 @@ hero_pinning:
 #   1. Env var SIMS_DIR si définie
 #   2. ../sims/ relatif au repo (défaut)
 #
-# Noms de dossiers hardcodés (convention) :
+# Nom de dossier hardcodé (convention) :
 #   - Rapid7InsightVM-simul
-#   - cyberwatch-simul
 #
 # Pour override : export SIMS_DIR=/chemin/personnalisé avant de lancer les scripts.
 # ------------------------------------------------------------

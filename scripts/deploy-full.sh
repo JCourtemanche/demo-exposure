@@ -139,14 +139,19 @@ fi
 bash deploy-cloudrun.sh
 
 echo ""
-echo "  → Cyberwatch simulator..."
-echo "    (creds: CW_ACCESS_KEY=$CW_ACCESS_KEY)"
-cd "$CYBERWATCH_FORK"
-if [ ! -f deploy-cloudrun.sh ]; then
-  echo "  ❌ deploy-cloudrun.sh introuvable dans $CYBERWATCH_FORK"
-  exit 1
+if [ "${SKIP_CYBERWATCH:-0}" = "1" ]; then
+  echo "  ⏭️  Cyberwatch simulator — SKIPPED (SKIP_CYBERWATCH=1)"
+  echo "     Note: v1 démo n'utilise que Rapid7. Cyberwatch = roadmap v2."
+else
+  echo "  → Cyberwatch simulator (optionnel v1 — export SKIP_CYBERWATCH=1 pour skip)..."
+  echo "    (creds: CW_ACCESS_KEY=$CW_ACCESS_KEY)"
+  cd "$CYBERWATCH_FORK"
+  if [ ! -f deploy-cloudrun.sh ]; then
+    echo "  ⚠️  deploy-cloudrun.sh introuvable dans $CYBERWATCH_FORK — skip"
+  else
+    bash deploy-cloudrun.sh
+  fi
 fi
-bash deploy-cloudrun.sh
 
 cd "$REPO_ROOT"
 echo ""

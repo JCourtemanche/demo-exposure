@@ -61,8 +61,7 @@ ASSETS = [
     {"hostname": "srv-mail.business.org",       "zone": "tier1",         "tier": "1", "owner": "it-corp"},
     {"hostname": "srv-fs-01.business.org",      "zone": "tier1",         "tier": "1", "owner": "it-corp"},
     {"hostname": "srv-monitoring.business.org", "zone": "tier1",         "tier": "2", "owner": "it-corp"},
-    {"hostname": "esxi-01.business.org",        "zone": "infra",         "tier": "1", "owner": "it-corp"},
-    {"hostname": "nas-01.business.org",         "zone": "infra",         "tier": "2", "owner": "it-corp"},
+    # esxi-01 et nas-01 retirés en v1 (Cyberwatch-only)
     {"hostname": "srv-ci.business.org",         "zone": "cicd",          "tier": "1", "owner": "devops"},
     {"hostname": "cloud-lb-01.business.org",    "zone": "cloud",         "tier": "2", "owner": "devops"},
     {"hostname": "cloud-app-01.business.org",   "zone": "cloud",         "tier": "2", "owner": "devops"},

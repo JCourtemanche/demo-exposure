@@ -60,10 +60,15 @@ MARKER_END = "# --- end Business Corp overrides ---"
 IMPORT_BLOCK = f"""
 {MARKER_BEGIN}
 try:
-    from .business_corp_overrides import EXTRA_ASSETS as _BC_EXTRA_ASSETS, PINNED_CVES as _BC_PINNED_CVES
+    from .business_corp_overrides import (
+        EXTRA_ASSETS as _BC_EXTRA_ASSETS,
+        PINNED_CVES as _BC_PINNED_CVES,
+        PUBLIC_IPS as _BC_PUBLIC_IPS,
+    )
     EXTRA_SERVER_SEED = EXTRA_SERVER_SEED + _BC_EXTRA_ASSETS
 except ImportError:
     _BC_PINNED_CVES = {{}}
+    _BC_PUBLIC_IPS = {{}}
 {MARKER_END}
 """
 
@@ -249,6 +254,28 @@ def patch_rapid7(assets_py: Path) -> bool:
     else:
         print(f"  ⚠️  Rapid7: 'seed = EXTRA_SERVER_SEED[:count]' introuvable")
         print(f"     → Les extra_assets custom peuvent être ignorés si count reste = 12.")
+
+    # 6. Enrichir les assets avec IPs publiques (Internet Exposed pour Cortex)
+    # Sed injection avant chaque `return assets` — s'applique donc à
+    # _persona_assets et _extra_assets qui retournent la liste.
+    marker_public_ip = "# BC-patch: enrich addresses with public IPs"
+    if marker_public_ip not in src:
+        enrichment = (
+            "\n    " + marker_public_ip + "\n"
+            "    for _a in assets:\n"
+            "        _pub = _BC_PUBLIC_IPS.get((_a.get('hostName') or '').lower())\n"
+            "        if _pub:\n"
+            "            _a.setdefault('addresses', []).append({'ip': _pub})\n"
+            "    return assets"
+        )
+        # Remplacer chaque `    return assets` (indentation à 4 espaces) par le bloc
+        pattern_return = re.compile(r"\n    return assets(?=\s*(?:\n|$))")
+        matches = pattern_return.findall(src)
+        if matches:
+            src = pattern_return.sub(enrichment, src)
+            print(f"  ✓ Rapid7: {len(matches)} public-IP enrichissement(s) inséré(s)")
+        else:
+            print(f"  ⚠️  Rapid7: '    return assets' introuvable — IP publiques non injectées")
 
     assets_py.write_text(src, encoding="utf-8")
     print(f"  ✅ Rapid7: {assets_py.name} patché")

@@ -29,9 +29,8 @@ Objectif : s'assurer que tous les composants nécessaires sont disponibles **ava
 
 ### Content packs XSIAM à installer (Cortex Marketplace)
 
-- [ ] **Rapid7 InsightVM** — status "built-in" attendu (natif Exposure Management)
-- [ ] **Cyberwatch** — recherche : "Cyberwatch (Partner Contribution)"
-  - Si introuvable : **fallback API Vulnerability Ingest** documenté dans `runbook/04`
+- [ ] **Rapid7 InsightVM** — status "built-in" attendu (natif Exposure Management, **seule source active en v1**)
+- ~~Cyberwatch (Partner Contribution)~~ — **retiré en v1** (pack alimente `cyberwatch_generic_alert_raw`, pas `asset_inventory`). Réintégration v2 via Vulnerability Ingest API — voir `runbook/04` marqué optionnel.
 - [ ] **Cortex Core** (généralement pré-installé)
 - [ ] **CommonScripts** (pour éventuelles automations XSOAR post-v1)
 

@@ -72,7 +72,9 @@ XSIAM → **Settings** → **Exposure Management** → **Security Controls** →
 | **Scope: Asset Groups** | `grp-zone-endpoints-win`, `grp-zone-devs-linux`, `grp-zone-tier0`, `grp-zone-tier1`, `grp-zone-cicd` |
 | **Default Effectiveness** | Effective |
 
-**⚠️ Ne PAS inclure** `grp-zone-infra` (ESXi, NAS, print) ni `grp-zone-dmz-edge` (VPN box) — c'est intentionnel pour matérialiser Hero Case 3 "Maillon Faible" et Hero Case 1 "Urgence Périmètre".
+**⚠️ Ne PAS inclure** `grp-zone-infra` (print server) ni `grp-zone-dmz-edge` (VPN box) — c'est intentionnel pour matérialiser Hero Case 3 "Maillon Faible" (R3) et Hero Case 1 "Urgence Périmètre" (R2).
+
+**⚠️ Aussi retirer `srv-adfs-01` du scope XDR** malgré son appartenance à `grp-zone-tier0` — car en v1 c'est cet asset qui porte Hero 3 (Maillon Faible interne, R3). Pour ce faire, créer un sous-groupe `grp-tier0-with-xdr` qui exclut ADFS, ou utiliser un tag `xdr-deployed=false` sur srv-adfs-01 spécifiquement.
 
 ### Contrôle 4 — VPN concentrateur (contexte, effet démo mineur)
 
@@ -111,10 +113,11 @@ Vérifier progression : XSIAM → Settings → Exposure Management → Security 
 
 Une fois en Active, ouvrir une case existante (ex : sur `srv-web-01.business.org`) et regarder l'onglet **Risk Details** → facteur **Compensating Controls**.
 
-Attendu :
+Attendu (v1 Rapid7 only) :
 - Les vulns web sur `srv-web-01` : Compensating Control = "Partially Effective" (WAF F5 déclaré)
-- Les vulns sur `esxi-01` : Compensating Control = "Unknown" ou "Not Effective" (aucun control couvrant)
-- Les vulns sur `alice` : Compensating Control = "Effective" (XDR agent couvre)
+- Les vulns sur `srv-adfs-01` (Hero 3) : Compensating Control = "Unknown" ou "Not Effective" (aucun control couvrant — pas d'XDR)
+- Les vulns sur `srv-ci` : Compensating Control = "Partially Effective" (XDR Linux couvre partiellement, mais Package In Use détecté par AST)
+- Les vulns sur `srv-vpn` (Hero 1) : Compensating Control = "Not Effective" (NGFW ne protège pas l'exploitation applicative)
 
 **Ceci est LA preuve visuelle** de l'effet des compensating controls sur le CVRS — cœur de l'Acte 4 du talk track.
 

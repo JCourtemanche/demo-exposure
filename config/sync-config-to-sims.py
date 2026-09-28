@@ -119,6 +119,18 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
     lines.append("}")
     lines.append("")
 
+    # --- PUBLIC_IPS ---
+    # Additional public IP per hostname, appended to asset["addresses"] by the patch
+    # helper. Cortex Exposure Management uses this to derive Internet Exposed flag
+    # in absence of a full ASM/Xpanse deployment.
+    lines.append("# Public IPs to append to asset['addresses'] — marks assets as Internet Exposed")
+    lines.append("# Key: hostname (lower)   Value: IPv4 string")
+    lines.append("PUBLIC_IPS = {")
+    for host, pub_ip in (config.get("additional_public_ips") or {}).items():
+        lines.append(f"    {host.lower()!r}: {str(pub_ip)!r},")
+    lines.append("}")
+    lines.append("")
+
     return "\n".join(lines) + "\n"
 
 
