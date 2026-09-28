@@ -102,6 +102,66 @@ def _apply_pinned_cves(sampled_cve_codes, cve_catalog, hostname):
 
 '''
 
+# --- Patch pour Rapid7 routes/reports.py — routes manquantes utilisées par XSIAM ---
+# Le sim upstream implémente POST /reports mais pas GET/DELETE — d'où 404 sur le
+# poll du connecteur XSIAM Rapid7 InsightVM. Bloc à appender à reports.py.
+# Note : reports_bp a déjà url_prefix='/api/3', donc les routes utilisent /reports (pas /api/3/reports).
+REPORTS_MARKER = "# BC-patch: missing report routes"
+
+REPORTS_ROUTES_BLOCK = '''
+
+
+# BC-patch: missing report routes — pour XSIAM Rapid7 InsightVM connector
+# Le sim upstream implémente POST /reports mais pas GET (list + single) ni DELETE.
+# Le connecteur XSIAM poll GET /reports/<id> après POST → sans ça, 404 systématique.
+@reports_bp.route("/reports", methods=["GET"])
+@require_basic_auth
+def list_reports_bc_patch():
+    resources = list(_REPORTS.values())
+    return jsonify({
+        "resources": resources,
+        "page": {"number": 0, "size": len(resources), "totalResources": len(resources), "totalPages": 1},
+        "links": [{"href": "/api/3/reports", "rel": "self"}],
+    })
+
+
+@reports_bp.route("/reports/<int:report_id>", methods=["GET"])
+@require_basic_auth
+def get_report_bc_patch(report_id):
+    report = _REPORTS.get(report_id)
+    if report is None:
+        # Report synthétique — évite le 404 sur le poll XSIAM après un POST (multi-worker ou reboot container)
+        return jsonify({
+            "id": report_id,
+            "name": f"report-{report_id}",
+            "format": "json",
+            "template": "vulnerability-details",
+            "status": "complete",
+            "history": [{"id": 5000 + report_id, "status": "complete", "version": 1}],
+            "links": [
+                {"href": f"/api/3/reports/{report_id}", "rel": "self"},
+                {"href": f"/api/3/reports/{report_id}/history/{5000 + report_id}", "rel": "history"},
+            ],
+        })
+    return jsonify(report)
+
+
+@reports_bp.route("/reports/<int:report_id>", methods=["DELETE"])
+@require_basic_auth
+def delete_report_bc_patch(report_id):
+    _REPORTS.pop(report_id, None)
+    return "", 204
+
+
+@reports_bp.route("/reports/<int:report_id>/history/<int:instance_id>", methods=["DELETE"])
+@require_basic_auth
+def delete_report_history_bc_patch(report_id, instance_id):
+    report = _REPORTS.get(report_id)
+    if report is not None:
+        report["history"] = [h for h in report.get("history", []) if h.get("id") != instance_id]
+    return "", 204
+'''
+
 
 # ------------------------------------------------------------
 # Utilitaires
@@ -192,6 +252,22 @@ def patch_rapid7(assets_py: Path) -> bool:
 
     assets_py.write_text(src, encoding="utf-8")
     print(f"  ✅ Rapid7: {assets_py.name} patché")
+    return True
+
+
+def patch_rapid7_reports(reports_py: Path) -> bool:
+    """Append missing GET/DELETE report routes to routes/reports.py.
+
+    Idempotent — checks for BC marker before appending.
+    """
+    src = reports_py.read_text(encoding="utf-8")
+    if REPORTS_MARKER in src:
+        print(f"  ⏭️  {reports_py.name} déjà patché (report routes) — skip")
+        return True
+
+    src = src.rstrip() + "\n" + REPORTS_ROUTES_BLOCK
+    reports_py.write_text(src, encoding="utf-8")
+    print(f"  ✅ Rapid7: {reports_py.name} patché (4 routes ajoutées : list, get, 2×delete)")
     return True
 
 
@@ -289,6 +365,13 @@ def main() -> int:
 
         if sim_key == "rapid7":
             success = patch_rapid7(assets_py)
+            # Patch supplémentaire sur routes/reports.py (routes manquantes pour XSIAM connector)
+            reports_py = fork_path / "simulator" / "routes" / "reports.py"
+            if reports_py.exists():
+                if not patch_rapid7_reports(reports_py):
+                    success = False
+            else:
+                print(f"  ⚠️  Rapid7: {reports_py} introuvable — skip patch reports")
         elif sim_key == "cyberwatch":
             success = patch_cyberwatch(assets_py)
         else:

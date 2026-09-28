@@ -87,6 +87,73 @@ vulns = _apply_pinned_cves(vulns, vulns_pool, hostname)
 
 (la variable `hostname` est déjà dépakée du tuple par la boucle `for idx, (hostname, ip, os_name, site_id) in enumerate(seed):`)
 
+### Bloc 6 — Routes manquantes dans routes/reports.py (⚠️ critique pour XSIAM)
+
+Le sim upstream implémente `POST /reports` mais **PAS** `GET /reports/<id>` ni `DELETE`. Le connecteur XSIAM Rapid7 InsightVM crée un report via POST puis poll `GET /reports/<id>` pour attendre qu'il soit prêt — sans cette route, retour 404 systématique et l'ingestion échoue.
+
+Attention : le blueprint `reports_bp` a `url_prefix='/api/3'`. Les routes patchées utilisent donc `/reports/...` (sans `/api/3/`) pour éviter le double-préfixage.
+
+**Fichier cible** : `simulator/routes/reports.py`
+
+**Ajouter à la fin du fichier** (le décorateur `@require_basic_auth` et les variables `_REPORTS`, `jsonify` sont déjà importés en haut) :
+
+```python
+
+
+# BC-patch: missing report routes — pour XSIAM Rapid7 InsightVM connector
+@reports_bp.route("/reports", methods=["GET"])
+@require_basic_auth
+def list_reports_bc_patch():
+    resources = list(_REPORTS.values())
+    return jsonify({
+        "resources": resources,
+        "page": {"number": 0, "size": len(resources), "totalResources": len(resources), "totalPages": 1},
+        "links": [{"href": "/api/3/reports", "rel": "self"}],
+    })
+
+
+@reports_bp.route("/reports/<int:report_id>", methods=["GET"])
+@require_basic_auth
+def get_report_bc_patch(report_id):
+    report = _REPORTS.get(report_id)
+    if report is None:
+        return jsonify({
+            "id": report_id,
+            "name": f"report-{report_id}",
+            "format": "json",
+            "template": "vulnerability-details",
+            "status": "complete",
+            "history": [{"id": 5000 + report_id, "status": "complete", "version": 1}],
+            "links": [
+                {"href": f"/api/3/reports/{report_id}", "rel": "self"},
+                {"href": f"/api/3/reports/{report_id}/history/{5000 + report_id}", "rel": "history"},
+            ],
+        })
+    return jsonify(report)
+
+
+@reports_bp.route("/reports/<int:report_id>", methods=["DELETE"])
+@require_basic_auth
+def delete_report_bc_patch(report_id):
+    _REPORTS.pop(report_id, None)
+    return "", 204
+
+
+@reports_bp.route("/reports/<int:report_id>/history/<int:instance_id>", methods=["DELETE"])
+@require_basic_auth
+def delete_report_history_bc_patch(report_id, instance_id):
+    report = _REPORTS.get(report_id)
+    if report is not None:
+        report["history"] = [h for h in report.get("history", []) if h.get("id") != instance_id]
+    return "", 204
+```
+
+Vérifier avec :
+```bash
+curl -u nxadmin:nxadmin-secret https://<sim>/api/3/reports/9999 | python3 -m json.tool
+# Attendu : JSON synthétique avec status: complete
+```
+
 ### Bloc 5 — Neutraliser le slicing qui tronque les extras (⚠️ critique)
 
 Sans ce bloc, `_extra_assets` fait `seed = EXTRA_SERVER_SEED[:count]` avec `count=12` par défaut de `build_assets_catalog`, ce qui **ignore les 4 extras custom** ajoutés par le bloc 1.
