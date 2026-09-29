@@ -1,32 +1,69 @@
-# Runbook 05 — Tags et Asset Groups (v1.1, préfixe `EM-demo-*`)
+# Runbook 05 — Asset Groups dynamiques (v1.2, tags auto-ingérés par Cortex)
 
-Objectif : matérialiser les 7 zones logiques et les 4 groupes owner via tags + groupes dynamiques XSIAM. Ces groupes seront ensuite référencés par les compensating controls (runbook 06) et les 8 Vulnerability Policies (runbook 07).
+Objectif : matérialiser les 7 zones logiques et les 4 groupes owner via **groupes dynamiques XSIAM** qui filtrent sur les tags asset ingérés automatiquement par Cortex depuis le sim Rapid7. Ces groupes seront ensuite référencés par les compensating controls (runbook 06) et les 8 Vulnerability Policies (runbook 07).
 
 ⚠️ **Environnement mutualisé** — tenant XSIAM PANW partagé. Tous les asset groups créés ici utilisent le préfixe `EM-demo-*` pour éviter les collisions avec d'autres démos.
 
-## Étape 5.1 — Format des tags (Q1 résolue)
+## 🎁 v1.2 — Auto-tagging via le sim (plus de bulk-tag manuel)
 
-Le format tag natif Cortex est **`key:value`** (séparateur `:`, pas `=`), stocké dans `xdm.asset.tags` sous `xdm.asset.normalized_fields`.
+**Nouveauté v1.2** : le sim Rapid7 émet directement les tags Business Corp dans son API `GET /api/3/assets/<id>/tags`. Cortex les ingère nativement dans `xdm.asset.tags` — **plus besoin de l'étape manuelle de tagging** (l'ancienne étape 5.2 bulk-tag est **obsolète v1.2**).
 
-**Format Business Corp v1** :
-- `zone:dmz-web`, `zone:tier0`, `zone:cicd`, etc.
-- `owner:secops`, `owner:it-corp`, `owner:appdev`, `owner:devops`
-- `tier:0`, `tier:1`, `tier:2`, `tier:3`
+Il suffit donc de :
+1. Vérifier que les tags sont bien remontés (§ 5.1)
+2. Créer les asset groups dynamiques (§ 5.2 → 5.4)
 
-## Étape 5.2 — Tagger les 16 actifs focus
+## Étape 5.1 — Vérifier que les tags Business Corp sont bien ingérés
 
-Deux approches selon vos préférences :
+Le sim Rapid7 émet 3 tags custom par asset focus (via `config/business-corp-config.yaml` section `asset_tags` + patch `apply-patches.py`) :
+- `zone:<zone>` (ex : `zone:dmz-web`)
+- `owner:<owner_group>` (ex : `owner:secops`)
+- `tier:<0|1|2|3>`
 
-### Approche 1 — UI (16 actifs, ~20 min)
+Ces tags sont ingérés par Cortex dans `xdm.asset.tags` — format `{name: type}`, tous en type `custom`.
+
+**Vérification XQL** :
+```xql
+config timeframe = 24h
+| dataset = asset_inventory
+| filter xdm.host.hostname contains "business.org"
+| fields xdm.host.hostname, xdm.asset.tags
+| limit 5
+```
+
+Attendu (exemple pour `srv-vpn.business.org`) :
+```
+xdm.asset.tags = {
+  "Business Corp": "custom",         ← tag natif sim
+  "site-1": "location",              ← tag natif sim
+  "zone:dmz-edge": "custom",         ← tag Business Corp
+  "owner:secops": "custom",          ← tag Business Corp
+  "tier:0": "custom"                 ← tag Business Corp
+}
+```
+
+Si les tags Business Corp sont absents :
+- Vérifier `~/sims/Rapid7InsightVM-simul/simulator/generators/business_corp_overrides.py` contient `ASSET_TAGS`
+- Vérifier `routes/assets.py` a bien été patché (marker `# BC-patch: append Business Corp custom tags`)
+- Redéployer : `cd ~/sims/Rapid7InsightVM-simul && bash deploy-cloudrun.sh`
+- Faire "Fetch Now" dans XSIAM et attendre ~15 min
+
+## ~~Étape 5.2 — Tagger les 16 actifs focus~~ (OBSOLÈTE v1.2)
+
+⚠️ **Cette étape est obsolète depuis v1.2** — les tags sont maintenant émis directement par le sim et auto-ingérés par Cortex. Voir § 5.1 pour la vérification.
+
+<details>
+<summary>Ancien contenu (bulk-tag manuel — conservé pour référence historique)</summary>
+
+Pour un tenant client sans nos patches sim, ou pour ajouter des tags supplémentaires manuellement dans XSIAM :
+
+### Approche 1 — UI
 
 XSIAM → **Inventory** → **Assets** → filtrer `xdm.host.hostname contains "business.org"`.
 
-Pour chaque asset de `infra/asset-inventory.md` :
+Pour chaque asset :
 1. Cliquer l'asset → panneau détail
 2. Onglet **Tags** → **+ Add Tag**
-3. Ajouter : `zone:<zone>`, `tier:<tier>`, `owner:<owner_group>` (format `key:value` avec `:`)
-
-Fastidieux mais pédagogique — recommandé si on veut vraiment comprendre où se placent les tags dans l'UI.
+3. Ajouter : `zone:<zone>`, `tier:<tier>`, `owner:<owner_group>`
 
 ### Approche 2 — API bulk (recommandée production démo, ~5 min)
 
@@ -124,7 +161,9 @@ $env:XSIAM_API_KEY = "<votre_secret>"
 python bulk-tag-assets.py
 ```
 
-## Étape 5.3 — Créer les 7 groupes dynamiques par zone
+</details>
+
+## Étape 5.2 — Créer les 7 groupes dynamiques par zone
 
 XSIAM → **Inventory** → **Assets** → **Groups** → **+ Add Group**.
 
@@ -142,7 +181,7 @@ Pour chaque zone, créer un groupe **Dynamic** avec le filtre approprié (format
 
 ⚠️ La syntaxe exacte du filtre dépend de l'UI XSIAM — si `xdm.asset.tags.zone = "dmz-web"` ne fonctionne pas, essayer `tags contains "zone:dmz-web"` (approche substring). Voir Q1 pour le formatting Rapid7 natif.
 
-## Étape 5.4 — Créer les 4 groupes dynamiques par owner
+## Étape 5.3 — Créer les 4 groupes dynamiques par owner
 
 | Nom du groupe | Filtre |
 |---------------|--------|
@@ -151,7 +190,7 @@ Pour chaque zone, créer un groupe **Dynamic** avec le filtre approprié (format
 | `EM-demo-owner-appdev` | `tags contains "owner:appdev"` |
 | `EM-demo-owner-devops` | `tags contains "owner:devops"` |
 
-## Étape 5.5 — Créer le groupe transverse `EM-demo-business-tier0`
+## Étape 5.4 — Créer le groupe transverse `EM-demo-business-tier0`
 
 Utilisé par la Vulnerability Policy R3 "Angle mort interne" (runbook 07) pour escalader les cases Tier 0.
 
@@ -161,13 +200,13 @@ Utilisé par la Vulnerability Policy R3 "Angle mort interne" (runbook 07) pour e
 
 Attendu : 3 assets (srv-vpn, srv-ad-01, srv-adfs-01).
 
-## Étape 5.6 — Attribution "Business Criticality" (optionnel, boost narratif)
+## Étape 5.5 — Attribution "Business Criticality" (optionnel, boost narratif)
 
 XSIAM → **Inventory** → **Assets** → sélectionner les assets Tier 0 → **Set Business Criticality** → **Critical**.
 
 Impact : ils remontent dans le filtre "Low Business Impact" du funnel Command Center → deviennent visibles dans les cases prioritaires.
 
-## Étape 5.7 — Validation
+## Étape 5.6 — Validation
 
 XSIAM → **Inventory** → **Assets** → **Groups** :
 - Compter : 7 zones + 4 owners + 1 tier0 = **12 groupes** `EM-demo-*` créés

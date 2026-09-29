@@ -182,6 +182,45 @@ additional_public_ips:
   smtp-relay.business.org:  203.0.113.40  # relais mail sortant
 
 # ------------------------------------------------------------
+# 4. ASSET TAGS — émis nativement par le sim pour auto-ingestion XSIAM
+# ------------------------------------------------------------
+#
+# Le sim Rapid7 expose GET /api/3/assets/<id>/tags qui retourne les tags
+# de l'asset. Cortex ingère ces tags dans `xdm.asset.tags` (visible dans
+# `xdm.asset.normalized_fields`), format `{name: type}`.
+#
+# En peuplant ces tags directement dans le sim, on évite l'étape manuelle
+# de bulk-tagging dans XSIAM (runbook 05 § 5.2 obsolète en v1.2).
+#
+# Format ci-dessous : `hostname: {key: value, ...}`
+# Chaque paire key:value devient un tag Rapid7 nommé "key:value" de type
+# "custom" — ingéré comme `xdm.asset.tags."key:value" = "custom"`.
+#
+# Les asset groups XSIAM (runbook 05 § 5.3-5.5) filtrent ensuite sur
+# ces tags pour créer les groupes dynamiques EM-demo-zone-*, EM-demo-owner-*, etc.
+# ------------------------------------------------------------
+
+asset_tags:
+  # === Natifs Rapid7 (12 servers + personas) ===
+  srv-web-01.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1"}
+  srv-web-02.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1"}
+  srv-db-01.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
+  srv-db-02.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
+  srv-mail.business.org:       {zone: tier1,     owner: it-corp, tier: "1"}
+  srv-ad-01.business.org:      {zone: tier0,     owner: secops,  tier: "0"}
+  srv-fs-01.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
+  srv-vpn.business.org:        {zone: dmz-edge,  owner: secops,  tier: "0"}
+  srv-monitoring.business.org: {zone: tier1,     owner: it-corp, tier: "2"}
+  srv-ci.business.org:         {zone: cicd,      owner: devops,  tier: "1"}
+  cloud-lb-01.business.org:    {zone: cloud,     owner: devops,  tier: "2"}
+  cloud-app-01.business.org:   {zone: cloud,     owner: devops,  tier: "2"}
+  # === Extras BC (injectés via extra_assets ci-dessus) ===
+  srv-portail.business.org:    {zone: dmz-web,   owner: appdev,  tier: "1"}
+  srv-adfs-01.business.org:    {zone: tier0,     owner: secops,  tier: "0"}
+  srv-print.business.org:      {zone: infra,     owner: it-corp, tier: "3"}
+  smtp-relay.business.org:     {zone: dmz-edge,  owner: it-corp, tier: "2"}
+
+# ------------------------------------------------------------
 # 4. CONFIGURATION SYNC (déprécié — géré par convention)
 # ------------------------------------------------------------
 #

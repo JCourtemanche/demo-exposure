@@ -131,6 +131,23 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
     lines.append("}")
     lines.append("")
 
+    # --- ASSET_TAGS ---
+    # Tags emitted by the sim on GET /api/3/assets/<id>/tags, ingested natively
+    # by Cortex into xdm.asset.tags. Format: hostname -> list of (name, type) tuples.
+    # Each `key: value` in the YAML becomes a Rapid7 tag named "key:value" of type "custom".
+    lines.append("# Asset tags emitted by the sim — auto-ingested by Cortex into xdm.asset.tags")
+    lines.append("# Key: hostname (lower)   Value: list of (tag_name, tag_type) tuples")
+    lines.append("ASSET_TAGS = {")
+    for host, kv in (config.get("asset_tags") or {}).items():
+        # Cyberwatch not currently in scope for tags — only rapid7 needs this
+        # (Cyberwatch has its own group system already)
+        if target_sim != "rapid7":
+            continue
+        tag_tuples = [(f"{k}:{v}", "custom") for k, v in kv.items()]
+        lines.append(f"    {host.lower()!r}: {tag_tuples!r},")
+    lines.append("}")
+    lines.append("")
+
     return "\n".join(lines) + "\n"
 
 

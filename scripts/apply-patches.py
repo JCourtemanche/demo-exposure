@@ -298,6 +298,52 @@ def patch_rapid7_reports(reports_py: Path) -> bool:
     return True
 
 
+# --- Patch pour Rapid7 routes/assets.py — enrichir GET /assets/<id>/tags ---
+# Le sim upstream retourne 2 tags codés en dur (Business Corp:custom, site-N:location).
+# On y ajoute les tags Business Corp par asset pour que Cortex les ingère nativement
+# (auto-tagging via xdm.asset.tags — évite le bulk-tagging manuel côté XSIAM).
+ASSETS_ROUTES_MARKER = "# BC-patch: append Business Corp custom tags"
+
+ASSETS_TAGS_INJECTION = '''    # BC-patch: append Business Corp custom tags
+    try:
+        from .business_corp_overrides import ASSET_TAGS as _BC_ASSET_TAGS
+        _bc_host = (ASSETS_BY_ID[asset_id].get("hostName") or "").lower()
+        _bc_next = 100
+        for _bc_name, _bc_type in _BC_ASSET_TAGS.get(_bc_host, []):
+            tags.append({
+                "id": _bc_next,
+                "name": _bc_name,
+                "type": _bc_type,
+                "links": [{"href": f"/api/3/tags/{_bc_next}", "rel": "self"}],
+            })
+            _bc_next += 1
+    except ImportError:
+        pass
+'''
+
+
+def patch_rapid7_assets_routes(assets_routes_py: Path) -> bool:
+    """Enrich GET /api/3/assets/<id>/tags with Business Corp tags."""
+    src = assets_routes_py.read_text(encoding="utf-8")
+    if ASSETS_ROUTES_MARKER in src:
+        print(f"  ⏭️  {assets_routes_py.name} déjà patché (asset tags) — skip")
+        return True
+
+    # Cherche la ligne `return jsonify(page_envelope(tags, 0, 500, f'/api/3/assets/{asset_id}/tags'))`
+    pattern = re.compile(
+        r"(\n)(    return jsonify\(page_envelope\(tags,\s*0,\s*500,\s*f'/api/3/assets/\{asset_id\}/tags'\)\),\s*200)"
+    )
+    if not pattern.search(src):
+        print(f"  ⚠️  Rapid7 routes/assets.py: pattern get_asset_tags return introuvable")
+        print(f"     → Enrichissement tags custom non appliqué. Le bulk-tagging manuel reste possible.")
+        return True  # Non bloquant
+
+    src = pattern.sub(r"\1" + ASSETS_TAGS_INJECTION + r"\2", src, count=1)
+    assets_routes_py.write_text(src, encoding="utf-8")
+    print(f"  ✅ Rapid7: {assets_routes_py.name} patché (tags Business Corp injectés)")
+    return True
+
+
 def patch_cyberwatch(assets_py: Path) -> bool:
     src = assets_py.read_text(encoding="utf-8")
     if is_patched(src):
@@ -399,6 +445,13 @@ def main() -> int:
                     success = False
             else:
                 print(f"  ⚠️  Rapid7: {reports_py} introuvable — skip patch reports")
+            # Patch supplémentaire sur routes/assets.py (auto-tagging via Cortex ingest)
+            assets_routes_py = fork_path / "simulator" / "routes" / "assets.py"
+            if assets_routes_py.exists():
+                if not patch_rapid7_assets_routes(assets_routes_py):
+                    success = False
+            else:
+                print(f"  ⚠️  Rapid7: {assets_routes_py} introuvable — skip patch assets routes")
         elif sim_key == "cyberwatch":
             success = patch_cyberwatch(assets_py)
         else:
