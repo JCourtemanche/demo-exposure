@@ -256,15 +256,17 @@ def patch_rapid7(assets_py: Path) -> bool:
         print(f"     → Les extra_assets custom peuvent être ignorés si count reste = 12.")
 
     # 6. Enrichir les assets avec IPs publiques (Internet Exposed pour Cortex)
-    # Sed injection avant chaque `return assets` — s'applique donc à
-    # _persona_assets et _extra_assets qui retournent la liste.
+    # Sed injection avant chaque `return assets`. Le hook est IDEMPOTENT :
+    # il n'ajoute la public IP que si elle n'est pas déjà dans addresses.
+    # Nécessaire car _persona_assets + _extra_assets + build_assets_catalog
+    # peuvent tous appeler le hook = 3× duplication sinon.
     marker_public_ip = "# BC-patch: enrich addresses with public IPs"
     if marker_public_ip not in src:
         enrichment = (
             "\n    " + marker_public_ip + "\n"
             "    for _a in assets:\n"
             "        _pub = _BC_PUBLIC_IPS.get((_a.get('hostName') or '').lower())\n"
-            "        if _pub:\n"
+            "        if _pub and not any(x.get('ip') == _pub for x in _a.get('addresses', [])):\n"
             "            _a.setdefault('addresses', []).append({'ip': _pub})\n"
             "    return assets"
         )
@@ -273,7 +275,7 @@ def patch_rapid7(assets_py: Path) -> bool:
         matches = pattern_return.findall(src)
         if matches:
             src = pattern_return.sub(enrichment, src)
-            print(f"  ✓ Rapid7: {len(matches)} public-IP enrichissement(s) inséré(s)")
+            print(f"  ✓ Rapid7: {len(matches)} public-IP enrichissement(s) inséré(s) — hook idempotent")
         else:
             print(f"  ⚠️  Rapid7: '    return assets' introuvable — IP publiques non injectées")
 
@@ -306,7 +308,9 @@ ASSETS_ROUTES_MARKER = "# BC-patch: append Business Corp custom tags"
 
 ASSETS_TAGS_INJECTION = '''    # BC-patch: append Business Corp custom tags
     try:
-        from .business_corp_overrides import ASSET_TAGS as _BC_ASSET_TAGS
+        # Import absolu — le fichier est simulator/generators/business_corp_overrides.py
+        # et routes/ n'est pas dans le même package que generators/
+        from generators.business_corp_overrides import ASSET_TAGS as _BC_ASSET_TAGS
         _bc_host = (ASSETS_BY_ID[asset_id].get("hostName") or "").lower()
         _bc_next = 100
         for _bc_name, _bc_type in _BC_ASSET_TAGS.get(_bc_host, []):
