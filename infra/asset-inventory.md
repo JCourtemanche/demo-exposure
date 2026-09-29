@@ -14,22 +14,22 @@ Les 6 personas partagées (Alice, Bob, Charlie, David, Emma, Flora) sont ingér�
 
 | # | Hostname | Origine | IP privée | IP publique | OS | Zone | Owner group | Compensating controls | Rôle narratif |
 |---|----------|---------|-----------|-------------|----|------|-------------|----------------------|---------------|
-| 1 | `srv-web-01.business.org` | Natif | 10.10.20.51 | **203.0.113.10** | Windows Server 2019 | `zone-dmz-web` | `grp-owner-appdev` | WAF F5 + NGFW PAN + XDR | **Hero 4** — Spring4Shell (R4) |
-| 2 | `srv-web-02.business.org` | Natif | 10.10.20.52 | **203.0.113.11** | Ubuntu 22.04 | `zone-dmz-web` | `grp-owner-appdev` | WAF F5 + NGFW PAN + XDR | Front web redondant |
-| 3 | `srv-portail.business.org` | **Extra BC** | 10.10.20.61 | **203.0.113.30** | Ubuntu 22.04 | `zone-dmz-web` | `grp-owner-appdev` | WAF F5 + NGFW PAN + XDR | **Hero 6** — bzip2 (R7) |
-| 4 | `srv-vpn.business.org` | Natif | 10.10.20.58 | **203.0.113.5** | Ubuntu 20.04 | `zone-dmz-edge` | `grp-owner-secops` | NGFW seul — **pas d'XDR** | **Hero 1** — CVE-2024-3400 (R2) |
-| 5 | `smtp-relay.business.org` | **Extra BC** | 10.10.20.64 | **203.0.113.40** | Debian 12 | `zone-dmz-edge` | `grp-owner-it-corp` | NGFW + XDR Linux | Relais SMTP sortant |
-| 6 | `srv-ad-01.business.org` | Natif | 10.10.20.56 | — | Windows Server 2022 | `zone-tier0` | `grp-owner-secops` | XDR + AppLocker | AD Domain Controller |
-| 7 | `srv-adfs-01.business.org` | **Extra BC** | 10.10.20.62 | — | Windows Server 2022 | `zone-tier0` | `grp-owner-secops` | **Aucun** (appliance-like) | **Hero 3** — Zerologon (R3) |
-| 8 | `srv-db-01.business.org` | Natif | 10.10.20.53 | — | Debian 12 | `zone-tier1` | `grp-owner-it-corp` | XDR Linux | PostgreSQL principal |
-| 9 | `srv-db-02.business.org` | Natif | 10.10.20.54 | — | Debian 12 | `zone-tier1` | `grp-owner-it-corp` | XDR Linux | PostgreSQL réplica |
-| 10 | `srv-mail.business.org` | Natif | 10.10.20.55 | **203.0.113.20** | Windows Server 2019 | `zone-tier1` | `grp-owner-it-corp` | XDR + Exchange hardening | **Hero 2** — ProxyLogon (R1) |
-| 11 | `srv-fs-01.business.org` | Natif | 10.10.20.57 | — | Windows Server 2019 | `zone-tier1` | `grp-owner-it-corp` | XDR | Fileserver DFS |
-| 12 | `srv-monitoring.business.org` | Natif | 10.10.20.59 | — | Debian 12 | `zone-tier1` | `grp-owner-it-corp` | XDR Linux | Prometheus + Grafana |
-| 13 | `srv-print.business.org` | **Extra BC** | 10.10.20.63 | — | Windows Server 2019 | `zone-infra` | `grp-owner-it-corp` | Aucun | Print server (souvent oublié) |
-| 14 | `srv-ci.business.org` | Natif | 10.10.20.60 | — | Ubuntu 22.04 | `zone-cicd` | `grp-owner-devops` | XDR Linux + AST | **Hero 5** — Log4Shell (R4) |
-| 15 | `cloud-lb-01.business.org` | Natif | 10.20.30.10 | — | Ubuntu 22.04 | `zone-cloud` | `grp-owner-devops` | Aucun natif (visibilité ASM) | Load balancer cloud |
-| 16 | `cloud-app-01.business.org` | Natif | 10.20.30.11 | — | Debian 12 | `zone-cloud` | `grp-owner-devops` | Aucun natif | App server cloud |
+| 1 | `srv-web-01.business.org` | Natif | 10.10.20.51 | **203.0.113.10** | Windows Server 2019 | `EM-demo-zone-dmz-web` | `EM-demo-owner-appdev` | WAF F5 + NGFW PAN + XDR | **Hero 4** — Spring4Shell (R4) |
+| 2 | `srv-web-02.business.org` | Natif | 10.10.20.52 | **203.0.113.11** | Ubuntu 22.04 | `EM-demo-zone-dmz-web` | `EM-demo-owner-appdev` | WAF F5 + NGFW PAN + XDR | Front web redondant |
+| 3 | `srv-portail.business.org` | **Extra BC** | 10.10.20.61 | **203.0.113.30** | Ubuntu 22.04 | `EM-demo-zone-dmz-web` | `EM-demo-owner-appdev` | WAF F5 + NGFW PAN + XDR | **Hero 6** — bzip2 (R7) |
+| 4 | `srv-vpn.business.org` | Natif | 10.10.20.58 | **203.0.113.5** | Ubuntu 20.04 | `EM-demo-zone-dmz-edge` | `EM-demo-owner-secops` | NGFW seul — **pas d'XDR** | **Hero 1** — CVE-2024-3400 (R2) |
+| 5 | `smtp-relay.business.org` | **Extra BC** | 10.10.20.64 | **203.0.113.40** | Debian 12 | `EM-demo-zone-dmz-edge` | `EM-demo-owner-it-corp` | NGFW + XDR Linux | Relais SMTP sortant |
+| 6 | `srv-ad-01.business.org` | Natif | 10.10.20.56 | — | Windows Server 2022 | `EM-demo-zone-tier0` | `EM-demo-owner-secops` | XDR + AppLocker | AD Domain Controller |
+| 7 | `srv-adfs-01.business.org` | **Extra BC** | 10.10.20.62 | — | Windows Server 2022 | `EM-demo-zone-tier0` | `EM-demo-owner-secops` | **Aucun** (appliance-like) | **Hero 3** — Zerologon (R3) |
+| 8 | `srv-db-01.business.org` | Natif | 10.10.20.53 | — | Debian 12 | `EM-demo-zone-tier1` | `EM-demo-owner-it-corp` | XDR Linux | PostgreSQL principal |
+| 9 | `srv-db-02.business.org` | Natif | 10.10.20.54 | — | Debian 12 | `EM-demo-zone-tier1` | `EM-demo-owner-it-corp` | XDR Linux | PostgreSQL réplica |
+| 10 | `srv-mail.business.org` | Natif | 10.10.20.55 | **203.0.113.20** | Windows Server 2019 | `EM-demo-zone-tier1` | `EM-demo-owner-it-corp` | XDR + Exchange hardening | **Hero 2** — ProxyLogon (R1) |
+| 11 | `srv-fs-01.business.org` | Natif | 10.10.20.57 | — | Windows Server 2019 | `EM-demo-zone-tier1` | `EM-demo-owner-it-corp` | XDR | Fileserver DFS |
+| 12 | `srv-monitoring.business.org` | Natif | 10.10.20.59 | — | Debian 12 | `EM-demo-zone-tier1` | `EM-demo-owner-it-corp` | XDR Linux | Prometheus + Grafana |
+| 13 | `srv-print.business.org` | **Extra BC** | 10.10.20.63 | — | Windows Server 2019 | `EM-demo-zone-infra` | `EM-demo-owner-it-corp` | Aucun | Print server (souvent oublié) |
+| 14 | `srv-ci.business.org` | Natif | 10.10.20.60 | — | Ubuntu 22.04 | `EM-demo-zone-cicd` | `EM-demo-owner-devops` | XDR Linux + AST | **Hero 5** — Log4Shell (R4) |
+| 15 | `cloud-lb-01.business.org` | Natif | 10.20.30.10 | — | Ubuntu 22.04 | `EM-demo-zone-cloud` | `EM-demo-owner-devops` | Aucun natif (visibilité ASM) | Load balancer cloud |
+| 16 | `cloud-app-01.business.org` | Natif | 10.20.30.11 | — | Debian 12 | `EM-demo-zone-cloud` | `EM-demo-owner-devops` | Aucun natif | App server cloud |
 
 **Total** : 16 actifs focus (12 natifs Rapid7 + 4 extras BC). Ne pas confondre avec les ~250 assets narratifs mentionnés dans l'acte 1 (extension implicite non-modélisée).
 
@@ -46,16 +46,16 @@ Les 6 actifs suivants portent une IP publique dans le range TEST-NET RFC 5737 (2
 | `srv-portail` | 203.0.113.30 | Portail transfert (Hero 6 R7) |
 | `smtp-relay` | 203.0.113.40 | Relais mail sortant |
 
-Les autres actifs sont **internes** — ils déclenchent les règles R3 (Maillon faible interne, ex : ADFS) ou sont hors-scope des règles Internet-Exposed.
+Les autres actifs sont **internes** — ils déclenchent les règles R3 (Angle mort interne, ex : ADFS) ou sont hors-scope des règles Internet-Exposed.
 
 ## Mapping owner → responsabilité
 
 | Groupe owner | Population | Email démo | Périmètre |
 |--------------|------------|------------|-----------|
-| `grp-owner-secops` | Équipe sécurité | secops@business.org | Tier 0 (AD, ADFS) + périmètre exposé (VPN) |
-| `grp-owner-it-corp` | IT corporate | it-corp@business.org | Tier 1 + infra + smtp-relay + print |
-| `grp-owner-appdev` | Développeurs applicatifs | appdev@business.org | Services web DMZ (srv-web-01/02, srv-portail) |
-| `grp-owner-devops` | Équipe DevOps/SRE | devops@business.org | CI/CD (srv-ci) + cloud |
+| `EM-demo-owner-secops` | Équipe sécurité | secops@business.org | Tier 0 (AD, ADFS) + périmètre exposé (VPN) |
+| `EM-demo-owner-it-corp` | IT corporate | it-corp@business.org | Tier 1 + infra + smtp-relay + print |
+| `EM-demo-owner-appdev` | Développeurs applicatifs | appdev@business.org | Services web DMZ (srv-web-01/02, srv-portail) |
+| `EM-demo-owner-devops` | Équipe DevOps/SRE | devops@business.org | CI/CD (srv-ci) + cloud |
 
 ## Volumétrie totale attendue dans XSIAM après ingestion
 

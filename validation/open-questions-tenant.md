@@ -1,222 +1,148 @@
-# Points à valider live dans le tenant XSIAM
+# Points à valider live dans le tenant XSIAM — Résolutions v1
 
-⚠️ **À faire AVANT de dérouler le runbook 02+**. Les réponses peuvent modifier des sections du runbook (notamment tags, ingestion Cyberwatch, ownership).
-
-Ces points sont issus du rapport d'exploration de la documentation Cortex Exposure Management / Vulnerability Management : la doc publique ne répond pas explicitement à ces questions. Chacune doit être testée directement dans votre tenant.
-
-Renseigner les réponses dans ce fichier au fur et à mesure — devient votre "notes tenant" persistantes.
+⚠️ Ce document consolide les **réponses live dans le tenant XSIAM PANW** collectées lors de la mise en place de la démo v1. Les 9 questions initiales sont marquées ✅ RÉSOLU / ⚠️ CONTOURNÉ / 🔜 v2.
 
 ---
 
-## Q1 — Format des tags sur les assets
+## ✅ Q1 — Format des tags sur les assets
 
-**Question** : Les tags sont-ils au format `key=value` (ex : `zone=dmz-web`) ou flat labels (ex : `dmz-web`) ? Existe-t-il un endpoint API dédié pour appliquer des tags en masse ?
+**Question initiale** : key=value ou flat ? Endpoint API ?
 
-**Comment tester** :
-1. XSIAM → Inventory → Assets → sélectionner un asset → onglet Tags → tenter d'ajouter un tag avec `=` dedans
-2. XSIAM → Settings → API Keys → créer une clé test → chercher un endpoint `/assets/{id}/tags` dans la doc API du tenant
-3. Alternative : XQL `dataset = asset_inventory | filter tags contains "="` — voir si le résultat est non vide
+**Résolution** :
+- Format **key:value** (séparateur `:` — pas `=`), stocké dans le champ `xdm.asset.tags` (objet JSON) sous `xdm.asset.normalized_fields`
+- Exemple observé : `{"Business Corp":"custom","site-1":"location"}`
+- Le formatting Rapid7 natif est atypique (les noms Rapid7 tags/sites remontent tels quels dans les valeurs XSIAM)
+- Structure JSON complète : le record `asset_inventory` contient un champ `xdm.asset.normalized_fields` qui déserialisé donne toutes les propriétés XDM
 
-**Impact runbook** :
-- Si key=value : garder `zone=dmz-web`, filtres `tags contains "zone=dmz-web"`
-- Si flat : simplifier en `dmz-web`, filtres `tags contains "dmz-web"`
-- Si pas d'API tag dédiée : passer par API `assets/update` avec le champ tags dans le body
+**Impact runbook 05** :
+- Tags custom Business Corp au format `zone:dmz-web`, `owner:secops`, `tier:0` (avec `:`, pas `=`)
+- Filtre XQL groupes : `xdm.asset.tags.zone = "dmz-web"` (à valider selon le formatting exact accepté par XSIAM)
 
-**Réponse (à remplir)** :
-```
-Format : [key=value | flat | autre]
-Endpoint API : 
-Notes :
-```
-
----
-
-## Q2 — Cyberwatch built-in ou Partner Contribution ?
-
-**Question** : Le content pack "Cyberwatch (Partner Contribution)" est-il disponible sur Cortex Marketplace ? Sinon, le seul chemin est la Vulnerability Ingest API custom.
-
-**Comment tester** :
-1. XSIAM → Marketplace → chercher "Cyberwatch"
-2. Vérifier statut : "Available" (installable) vs "Not found"
-
-**Impact runbook** :
-- Si Available : suivre Plan A dans `runbook/04-configure-xsiam-cyberwatch.md`
-- Si Not found : suivre Plan B (script Python + Vulnerability Ingest API)
-
-**Réponse (à remplir)** :
-```
-Disponible en Marketplace : [Oui/Non]
-Version : 
-Notes :
+**Requête de vérification** :
+```xql
+config timeframe = 24h
+| dataset = asset_inventory
+| filter xdm.host.hostname contains "srv-"
+| fields xdm.host.hostname, xdm.asset.tags
+| limit 5
 ```
 
 ---
 
-## Q3 — Scope du CVRS (per-CVE / per-asset / per-finding)
+## 🔜 Q2 — Cyberwatch built-in ou Partner Contribution ?
 
-**Question** : Le CVRS est-il calculé une seule fois par CVE (score absolu) ou par couple (CVE, asset) (score contextuel) ? Ceci détermine si les compensating controls affectent réellement le score visible.
+**Résolution** : Piste **abandonnée en v1**. Le pack Cyberwatch (Partner Contribution) alimente `cyberwatch_generic_alert_raw` mais **pas `asset_inventory`** d'Exposure Management.
 
-**Comment tester** :
-1. Prendre 2 assets ayant la même CVE (ex : Log4Shell sur `srv-ci` et `srv-web-01`)
-2. L'un avec compensating control efficace (XDR + WAF), l'autre sans
-3. Ouvrir les 2 vulnerability issues → comparer le CVRS
+**Roadmap v2** : Le repo `cyberwatch-simul` a un dossier `byos-importer` (Bring Your Own Scanner) qui contient l'appel API pour aspirer le contenu des datasets Cyberwatch et les pousser dans l'API Ingest d'Exposure Management :
+- URL : https://github.com/JCourtemanche/cyberwatch-simul/tree/main/byos-importer
 
-**Impact runbook** :
-- Si per-finding (contextuel) : les hero cases fonctionnent comme prévu (Acte 4 démontre l'effet)
-- Si per-CVE (absolu) : ajuster le talk track — le CVRS ne bougera pas d'un asset à l'autre, seule la sévérité/priorisation change via les policies
-
-**Réponse (à remplir)** :
-```
-Scope : [per-CVE | per-asset | per-finding]
-Écart CVRS observé : 
-Notes :
-```
+Action v2 : intégrer ce byos-importer dans le pipeline `deploy-full.sh` pour brancher Cyberwatch en tant que source EM secondaire.
 
 ---
 
-## Q4 — Champ `owner` natif sur l'asset ?
+## ✅ Q3 — Scope du CVRS
 
-**Question** : Y a-t-il un champ `owner` ou `owner_email` de premier niveau sur l'objet asset dans XSIAM ? Ou l'ownership est-il représenté uniquement via tags/asset groups ?
+**Question initiale** : per-CVE, per-asset, per-finding ?
 
-**Comment tester** :
-1. XSIAM → Inventory → Assets → cliquer un asset → panneau détail → chercher un champ "Owner"
-2. XQL : `dataset = asset_inventory | fields *` → observer les colonnes disponibles
-3. API : GET sur un asset et regarder le JSON complet
+**Résolution** : **per-finding (per-asset per-CVE)** — le CVRS **prend en compte les compensating controls de l'asset** au moment du calcul. Confirmé sur un finding réel :
 
-**Impact runbook** :
-- Si champ owner natif : ajouter à `runbook/05` une étape pour populer via API
-- Sinon : rester sur l'approche groupes `grp-owner-*` (déjà documentée)
+Exemple sur `srv-ad-01.business.org` + CVE-2016-3189 :
+- Score CVSS : 6.5
+- Score EPSS : 0.15562
+- Severity : SEV_030_MEDIUM
+- Compensating controls influencent la sévérité effective (visible dans le finding)
 
-**Réponse (à remplir)** :
-```
-Champ owner natif : [Oui/Non]
-Nom du champ : 
-Notes :
-```
+**Impact** : les 8 policies R1-R8 basées sur CVRS fonctionnent bien au niveau finding. Un même CVE sur 2 assets différents peut avoir 2 CVRS différents selon les controls.
 
 ---
 
-## Q5 — Manual override du flag "Internet Exposed"
+## ⚠️ Q4 — Champ `owner` natif sur l'asset ?
 
-**Question** : Peut-on manuellement marquer un asset comme "Internet Exposed" via UI/API, ou le flag dérive-t-il uniquement de sources automatiques (ASM/Xpanse, CNA cloud, Attack Surface Testing) ?
+**Question initiale** : owner comme champ premier niveau ?
 
-**Comment tester** :
-1. XSIAM → Inventory → Assets → cliquer un asset non-exposé → chercher un toggle "Internet Exposed" éditable
-2. Alternative : chercher dans les Vulnerability Policies s'il existe un opérateur pour forcer le flag
+**Résolution** : **Non**, pas de champ owner natif sur l'objet asset. Deux niveaux de représentation possibles :
+- **Tags asset** (via `xdm.asset.tags`) — permet de stocker un `owner:secops` mais informatif seul
+- **Owner sur case/issue** — un case XSIAM peut avoir un owner attribué
 
-**Impact runbook** :
-- Si override manuel possible : marquer explicitement `srv-vpn`, `srv-portail`, `srv-web-01`, `smtp-relay` comme Internet Exposed → garantit qu'ils passent les filtres
-- Sinon : dépendre d'ASM (nécessite l'addon Xpanse) ou de la géométrie détectée par le sim (peu probable)
+**Pattern v1 recommandé** :
+- Tags asset avec l'owner de référence : `zone:dmz-web`, `owner:secops` (documentaire)
+- Playbook XSOAR qui, à la création d'un case, lit le tag `owner:*` de l'asset et assigne le case au bon owner group / user
 
-⚠️ **Ce point est bloquant pour le narratif** si aucune méthode n'est disponible : les hero cases 1, 2, 4, 6 s'effondrent. À valider en priorité.
-
-**Réponse (à remplir)** :
-```
-Override manuel : [UI | API | Aucun]
-Source alternative : [ASM Xpanse actif ? / CNA cloud ? / autre]
-Notes :
-```
+**Roadmap v2** : Écrire le playbook `EM-demo-Auto-Assign-Case-Owner` :
+1. Trigger : nouveau case Vulnerability Management
+2. Read asset.tags → extract `owner:*`
+3. Map owner → email SecOps/IT-Corp/AppDev/DevOps
+4. `setOwner` sur le case
 
 ---
 
-## Q6 — MITRE ATT&CK mapping sur les findings
+## ⚠️ Q5 — Manual override du flag "Internet Exposed"
 
-**Question** : Les vulnerability findings portent-ils un mapping MITRE ATT&CK (technique / tactique) ? Si oui, d'où vient-il ?
+**Question initiale** : override manuel possible ?
 
-**Comment tester** :
-1. XSIAM → Vulnerability Issues → ouvrir une case → chercher un panneau MITRE
-2. XQL : `dataset = uvm_findings | filter mitre_technique != null | limit 5`
+**Résolution** : **Non**, pas d'override direct sur le champ Internet Exposed (dérive uniquement d'ASM/CNA/AST).
 
-**Impact runbook** :
-- Si mapping présent : à intégrer dans le talk track (Acte 3) — montre la corrélation avec la kill chain
-- Sinon : ne pas mentionner, éviter la question
+**Contournement v1 propre** : créer un **asset group custom** basé sur les tags zone, et l'utiliser dans les Match Conditions des Vulnerability Policies en tant qu'équivalent logique.
 
-**Réponse (à remplir)** :
+**Exemple** :
 ```
-Mapping MITRE présent : [Oui/Non]
-Source : 
-Notes :
+Policy Match Conditions:
+  (KEV = Yes) AND (
+    Internet Exposed = Yes
+    OR
+    Asset Group in [EM-demo-zone-dmz-web, EM-demo-zone-dmz-edge]
+  )
 ```
+
+Ainsi les assets DMZ sont traités comme Internet Exposed même si Cortex ne l'a pas détecté nativement.
+
+**Impact runbook 07** : intégrer cette clause OR dans les policies R1, R2, R7 (celles qui dépendent d'Internet Exposed).
 
 ---
 
-## Q7 — Patch availability
+## ❌ Q6 — MITRE ATT&CK mapping sur les findings
 
-**Question** : Le finding a-t-il un champ boolean `patch_available` ou seulement un lien vers l'advisory vendor ?
+**Résolution** : **Aucune notion de MITRE** dans les findings ni dans la base CVE Cortex Vulnerability Intelligence.
 
-**Comment tester** :
-1. Ouvrir un finding sur CVE-2021-44228 (Log4Shell — patch existe depuis 2021)
-2. Chercher un badge / champ "Patch Available: Yes"
-
-**Impact runbook** :
-- Si champ boolean : ajouter à `talk-track` Acte 5 ("Cortex vous dit lesquelles ont un patch, lesquelles nécessitent un workaround")
-- Sinon : mentionner "lien vers advisory vendor" et suffit
-
-**Réponse (à remplir)** :
-```
-Champ patch_available : [Boolean | Lien | Aucun]
-Notes :
-```
+**Impact** : **Retirer toute mention MITRE du talk track**. Ne pas promettre de kill-chain / TTP mapping côté Exposure Management. C'est réservé aux alerts Cortex XDR / XSIAM (correlation rules), pas au vuln management.
 
 ---
 
-## Q8 — Endpoint exact Vulnerability Ingest API
+## ✅ Q7 — Fix Available & Compensating Controls
 
-**Question** : Quel est le endpoint REST exact pour push des vulnerabilités custom (utilisé dans Plan B `runbook/04`) ? La doc mentionne "Vulnerability Ingest API" mais le path exact n'est pas dans les pages publiques.
+**Résolution** : **Oui**, les 2 champs existent sur les findings :
+- `Fix Available` — Boolean (visible dans le finding détail, "Yes" observé sur CVE-2016-3189)
+- `Compensating Controls` — Multi-valeur (effectivité par control)
 
-**Comment tester** :
-1. XSIAM → Help / Documentation → chercher "Vulnerability Ingest API"
-2. Alternative : Settings → API Reference intégrée au tenant
-3. Ticket support PANW si introuvable
-
-**Impact runbook** :
-- Remplacer le placeholder `/public_api/v1/vulnerability_management/ingest` dans `runbook/04` Plan B script Python
-- Ajouter le format exact du payload attendu
-
-**Réponse (à remplir)** :
-```
-Endpoint : 
-Version API : 
-Auth : 
-Payload schema : (résumé ou lien)
-Notes :
-```
+**Impact** : les policies R4, R5, R6, R8 (qui utilisent `Fix Available`) et R3, R5 (qui utilisent effectivité des controls) sont **fonctionnelles** dans le tenant.
 
 ---
 
-## Q9 (bonus) — Cycle Discovery → Active des Compensating Controls
+## 🔜 Q8 — Endpoint exact Vulnerability Ingest API
 
-**Question** : Le cycle 24h documenté est-il incompressible ? Peut-on forcer la transition vers "Active" ?
+**Résolution** : voir Q2 — implémentation via `byos-importer` de Cyberwatch qui utilise le bon endpoint. À explorer en v2.
 
-**Comment tester** :
-1. Créer un contrôle manuel test
-2. Chercher un bouton "Force Activate" ou équivalent
-3. Attendre 1 h et voir si le status change (ou reste Discovery)
-
-**Impact runbook** :
-- Si compressible : réduire le buffer temps dans `runbook/06` de 24h à quelques heures
-- Sinon : garder la recommandation "48h avant démo"
-
-**Réponse (à remplir)** :
-```
-Cycle raccourcissable : [Oui/Non]
-Notes :
-```
+Documentation Cortex à consulter au moment de la v2 : Cortex XSIAM Platform APIs → Vulnerability Management APIs.
 
 ---
 
-## Synthèse
+## ❌ Q9 — Cycle Discovery → Active Compensating Controls raccourcissable
 
-Une fois les 8-9 questions renseignées, faire un diff avec les hypothèses par défaut du runbook et ajuster :
-- `runbook/05` si Q1 différent de key=value
-- `runbook/04` si Q2 = Not found
-- `narratif/` si Q3/Q4/Q5/Q6/Q7 changent le talk track
-- `runbook/04` Plan B si Q8 apporte le endpoint exact
-- `runbook/06` § "cycle 24h" si Q9 raccourcissable
+**Résolution** : **Non**, pas de mécanisme pour forcer le passage Discovery → Active. Le cycle 24h documenté est incompressible.
 
-## Références
+**Impact planning démo** : créer les compensating controls **au minimum 48 h avant la démo** pour être sûr qu'ils sont en état Active au moment du drill-down (voir runbook 08 checklist J-2).
 
-- Doc Exposure Management : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/exposure-management
-- Doc Vulnerability Management : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/vulnerability-management
-- Doc Asset Groups : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/asset-management/asset-groups
-- Doc Security Controls : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/exposure-management/security-controls
+---
+
+## Convention de nommage v1 — Environnement mutualisé
+
+⚠️ Le tenant XSIAM PANW est **mutualisé** (plusieurs démos coexistent). Tous les artefacts créés pour cette démo utilisent un **préfixe `EM-demo-`** pour éviter les collisions :
+
+| Type | Convention | Exemples |
+|------|-----------|----------|
+| **Asset Groups** | `EM-demo-<scope>-<name>` | `EM-demo-zone-dmz-web`, `EM-demo-owner-secops`, `EM-demo-business-tier0` |
+| **Vulnerability Policies** | `EM-demo-POL-R{n}-<severity>-<discriminator>` | `EM-demo-POL-R1-Critical-KEV-Internet-Exposed` |
+| **Compensating Controls** | `EM-demo-CC-<type>-<vendor>` | `EM-demo-CC-WAF-F5-BigIP` |
+| **Tags asset** | `<key>:<value>` (pas de préfixe — le format tag est natif Rapid7) | `zone:dmz-web`, `owner:secops`, `tier:0` |
+
+Ce préfixe est **hardcodé** dans les runbooks 05, 06, 07. Pour un client réel non-mutualisé, utiliser un préfixe métier (ex: `PROD-EM-*`, `TENANT-BC-*`) via find-and-replace.

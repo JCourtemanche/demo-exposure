@@ -38,24 +38,24 @@ XSIAM → **Settings** → **Exposure Management** → **Security Controls** →
 
 | Champ | Valeur |
 |-------|--------|
-| **Name** | `WAF-F5-BigIP-Prod` |
+| **Name** | `EM-demo-CC-WAF-F5-BigIP` |
 | **Category** | Network Security |
 | **Type** | Web Application Firewall |
 | **Vendor** | F5 |
 | **Description** | WAF F5 Big-IP protégeant la DMZ web publique |
-| **Scope: Asset Groups** | `grp-zone-dmz-web` |
+| **Scope: Asset Groups** | `EM-demo-zone-dmz-web` |
 | **Default Effectiveness** | Partially Effective (bloque OWASP Top 10 mais pas exploitations post-authent) |
 
 ### Contrôle 2 — PANW NGFW périmétrique
 
 | Champ | Valeur |
 |-------|--------|
-| **Name** | `NGFW-PANW-Perimeter` |
+| **Name** | `EM-demo-CC-NGFW-PANW-Perimeter` |
 | **Category** | Network Security |
 | **Type** | Next Generation Firewall |
 | **Vendor** | Palo Alto Networks |
 | **Description** | NGFW hardware en périmètre — segmentation zones + inspection L7 |
-| **Scope: Asset Groups** | `grp-zone-dmz-web`, `grp-zone-dmz-edge` |
+| **Scope: Asset Groups** | `EM-demo-zone-dmz-web`, `EM-demo-zone-dmz-edge` |
 | **Default Effectiveness** | Partially Effective |
 
 ⚠️ **Si vous êtes en VM-Series NGFW** (pas hardware), Cortex peut l'auto-détecter → à confirmer dans votre tenant. Dans ce cas, ne pas créer manuellement, le laisser en Discovered.
@@ -64,28 +64,28 @@ XSIAM → **Settings** → **Exposure Management** → **Security Controls** →
 
 | Champ | Valeur |
 |-------|--------|
-| **Name** | `Cortex-XDR-Agent-Endpoints` |
+| **Name** | `EM-demo-CC-XDR-Agent-Endpoints` |
 | **Category** | Endpoint Security |
 | **Type** | XDR |
 | **Vendor** | Palo Alto Networks |
 | **Description** | Cortex XDR agent déployé sur endpoints Win + Linux + serveurs Tier 0/1 |
-| **Scope: Asset Groups** | `grp-zone-endpoints-win`, `grp-zone-devs-linux`, `grp-zone-tier0`, `grp-zone-tier1`, `grp-zone-cicd` |
+| **Scope: Asset Groups** | `EM-demo-zone-endpoints-win`, `EM-demo-zone-devs-linux`, `EM-demo-zone-tier0`, `EM-demo-zone-tier1`, `EM-demo-zone-cicd` |
 | **Default Effectiveness** | Effective |
 
-**⚠️ Ne PAS inclure** `grp-zone-infra` (print server) ni `grp-zone-dmz-edge` (VPN box) — c'est intentionnel pour matérialiser Hero Case 3 "Maillon Faible" (R3) et Hero Case 1 "Urgence Périmètre" (R2).
+**⚠️ Ne PAS inclure** `EM-demo-zone-infra` (print server) ni `EM-demo-zone-dmz-edge` (VPN box) — c'est intentionnel pour matérialiser Hero Case 3 "Maillon Faible" (R3) et Hero Case 1 "Urgence Périmètre" (R2).
 
-**⚠️ Aussi retirer `srv-adfs-01` du scope XDR** malgré son appartenance à `grp-zone-tier0` — car en v1 c'est cet asset qui porte Hero 3 (Maillon Faible interne, R3). Pour ce faire, créer un sous-groupe `grp-tier0-with-xdr` qui exclut ADFS, ou utiliser un tag `xdr-deployed=false` sur srv-adfs-01 spécifiquement.
+**⚠️ Aussi retirer `srv-adfs-01` du scope XDR** malgré son appartenance à `EM-demo-zone-tier0` — car en v1 c'est cet asset qui porte Hero 3 (R3 "Angle mort interne"). Pour ce faire, créer un sous-groupe `EM-demo-zone-tier0-with-xdr` qui exclut ADFS via filtre `xdm.asset.tags.zone = "tier0" AND xdm.host.hostname != "srv-adfs-01.business.org"`.
 
 ### Contrôle 4 — VPN concentrateur (contexte, effet démo mineur)
 
 | Champ | Valeur |
 |-------|--------|
-| **Name** | `VPN-Concentrator-RemoteAccess` |
+| **Name** | `EM-demo-CC-VPN-Concentrator` |
 | **Category** | Data Security |
 | **Type** | VPN |
 | **Vendor** | Palo Alto Networks (GlobalProtect) |
 | **Description** | VPN d'accès distant pour employés télétravail |
-| **Scope: Asset Groups** | `grp-zone-endpoints-win`, `grp-zone-devs-linux` |
+| **Scope: Asset Groups** | `EM-demo-zone-endpoints-win`, `EM-demo-zone-devs-linux` |
 | **Default Effectiveness** | Unknown |
 
 ## Étape 6.3 — Effectiveness Rules (raffinement — optionnel v1)

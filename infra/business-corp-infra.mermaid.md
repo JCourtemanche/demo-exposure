@@ -69,7 +69,7 @@ flowchart TB
 ## Légende
 
 - **Rouge** (`exposed`) : actifs avec IP publique — cibles principales des règles R1, R2, R4, R7
-- **Orange** (`critical`) : actifs Tier 0/1 critiques — porteurs de la Vulnerability Policy R3 (Maillon faible interne)
+- **Orange** (`critical`) : actifs Tier 0/1 critiques — porteurs de la Vulnerability Policy R3 (Angle mort interne)
 - **Jaune** (`nocontrol`) : actifs sans Cortex XDR agent — matérialisent R3 "Maillon Faible" (ADFS, print) ou R2 "Urgence périmètre" (VPN)
 - **Bleu** (`normal`) : actifs standards protégés par XDR
 

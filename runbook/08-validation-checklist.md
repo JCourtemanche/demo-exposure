@@ -55,7 +55,7 @@ Chacun doit lister au moins **2 IPs** (privée 10.10.20.X + publique 203.0.113.X
 
 ## Section E — Tags et groupes
 
-- [ ] 14 groupes créés (7 zones + 4 owner + 1 tier0 + `grp-business-tier0`)
+- [ ] 14 groupes créés (7 zones + 4 owner + 1 tier0 + `EM-demo-business-tier0`)
 - [ ] Chaque groupe a le bon `member count` (voir tableau `runbook/05` § 5.7)
 - [ ] Les 16 assets focus sont tous taggés (spot check 5 assets via l'UI)
 
@@ -68,14 +68,14 @@ Chacun doit lister au moins **2 IPs** (privée 10.10.20.X + publique 203.0.113.X
 
 ## Section G — Vulnerability Policies (8 règles CVRS R1-R8)
 
-- [ ] `POL-BC-R1-Feu-de-Foret` enabled, position 1
-- [ ] `POL-BC-R2-Urgence-Perimetre` enabled, position 2
-- [ ] `POL-BC-R3-Maillon-Faible-Interne` enabled, position 3
-- [ ] `POL-BC-R4-Exploit-Pret` enabled, position 4
-- [ ] `POL-BC-R5-Sans-Patch` enabled, position 5
-- [ ] `POL-BC-R6-Hygiene-Prioritaire` enabled, position 6
-- [ ] `POL-BC-R7-Surface-Externe` enabled, position 7
-- [ ] `POL-BC-R8-Rolling-Patch` enabled, position 8
+- [ ] `EM-demo-POL-R1-Critical-KEV-Internet-Exposed` enabled, position 1
+- [ ] `EM-demo-POL-R2-Critical-Perimeter-CVRS90` enabled, position 2
+- [ ] `EM-demo-POL-R3-High-Internal-Tier0-KEV` enabled, position 3
+- [ ] `EM-demo-POL-R4-High-Weaponized-Patchable` enabled, position 4
+- [ ] `EM-demo-POL-R5-High-NoPatch-Compensating` enabled, position 5
+- [ ] `EM-demo-POL-R6-Medium-Batch-Hygiene` enabled, position 6
+- [ ] `EM-demo-POL-R7-Medium-External-Surface` enabled, position 7
+- [ ] `EM-demo-POL-R8-Low-Rolling-Update` enabled, position 8
 
 ## Section H — Command Center Funnel
 
@@ -95,38 +95,38 @@ Pour chaque hero case (voir `narratif/hero-cases.md`), ouvrir la case correspond
 - [ ] CVRS ≥ 90
 - [ ] Badge Internet Exposed visible
 - [ ] Badge CISA KEV visible
-- [ ] Policy matched : `POL-BC-R2-Urgence-Perimetre`
+- [ ] Policy matched : `EM-demo-POL-R2-Critical-Perimeter-CVRS90`
 
-### Hero 2 — R1 Feu de forêt
+### Hero 2 — R1 Exploitation active périmètre
 - [ ] Case existe sur `srv-mail.business.org` avec CVE-2021-26855
 - [ ] Badge CISA KEV présent
 - [ ] Exploit Maturity = High/Functional
-- [ ] Policy matched : `POL-BC-R1-Feu-de-Foret`
+- [ ] Policy matched : `EM-demo-POL-R1-Critical-KEV-Internet-Exposed`
 
 ### Hero 3 — R3 Maillon Faible interne
 - [ ] Case existe sur `srv-adfs-01.business.org` avec CVE-2020-1472
 - [ ] CVRS ≥ 90
 - [ ] Internet Exposed = **False**
-- [ ] Asset Group inclut `grp-business-tier0`
+- [ ] Asset Group inclut `EM-demo-business-tier0`
 - [ ] Compensating Control facteur = "Not Effective" ou "Unknown"
-- [ ] Policy matched : `POL-BC-R3-Maillon-Faible-Interne`
+- [ ] Policy matched : `EM-demo-POL-R3-High-Internal-Tier0-KEV`
 
 ### Hero 4 — R4 Exploit prêt EPSS
 - [ ] Case existe sur `srv-web-01.business.org` avec CVE-2022-22965
 - [ ] EPSS ≥ 0.7
 - [ ] Fix Available = True
-- [ ] Policy matched : `POL-BC-R4-Exploit-Pret`
+- [ ] Policy matched : `EM-demo-POL-R4-High-Weaponized-Patchable`
 
 ### Hero 5 — R4 Exploit prêt Package-in-use
 - [ ] Case existe sur `srv-ci.business.org` avec CVE-2021-44228
 - [ ] Environment Risk = "Package In Use" (si AST activé)
-- [ ] Policy matched : `POL-BC-R4-Exploit-Pret`
+- [ ] Policy matched : `EM-demo-POL-R4-High-Weaponized-Patchable`
 
 ### Hero 6 — R7 Surface externe
 - [ ] Case existe sur `srv-portail.business.org` avec CVE-2016-3189
 - [ ] Sévérité = Medium
 - [ ] Internet Exposed = True
-- [ ] Policy matched : `POL-BC-R7-Surface-Externe`
+- [ ] Policy matched : `EM-demo-POL-R7-Medium-External-Surface`
 
 ## Section J — Répétition talk track
 

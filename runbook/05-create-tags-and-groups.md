@@ -1,29 +1,30 @@
-# Runbook 05 — Tags et Asset Groups
+# Runbook 05 — Tags et Asset Groups (v1.1, préfixe `EM-demo-*`)
 
-Objectif : matérialiser les 9 zones logiques (`zone-*`) et les 4 groupes owner (`grp-owner-*`) via tags + groupes dynamiques XSIAM. Ces groupes seront ensuite référencés par les compensating controls (runbook 06) et la Vulnerability Policy (runbook 07).
+Objectif : matérialiser les 7 zones logiques et les 4 groupes owner via tags + groupes dynamiques XSIAM. Ces groupes seront ensuite référencés par les compensating controls (runbook 06) et les 8 Vulnerability Policies (runbook 07).
 
-## Étape 5.1 — Valider le format de tag dans votre tenant
+⚠️ **Environnement mutualisé** — tenant XSIAM PANW partagé. Tous les asset groups créés ici utilisent le préfixe `EM-demo-*` pour éviter les collisions avec d'autres démos.
 
-⚠️ **Prérequis** : avoir répondu à la question 1 de `validation/open-questions-tenant.md` (format key=value vs flat).
+## Étape 5.1 — Format des tags (Q1 résolue)
 
-**Deux hypothèses possibles** :
-- **A. Key=value** : `zone=dmz-web`, `tier=0`, `owner=secops` → configuration ci-dessous "Approche A"
-- **B. Flat labels** : `dmz-web`, `tier-0`, `owner-secops` → configuration ci-dessous "Approche B"
+Le format tag natif Cortex est **`key:value`** (séparateur `:`, pas `=`), stocké dans `xdm.asset.tags` sous `xdm.asset.normalized_fields`.
 
-Adapter les commandes de tagging en conséquence.
+**Format Business Corp v1** :
+- `zone:dmz-web`, `zone:tier0`, `zone:cicd`, etc.
+- `owner:secops`, `owner:it-corp`, `owner:appdev`, `owner:devops`
+- `tier:0`, `tier:1`, `tier:2`, `tier:3`
 
-## Étape 5.2 — Tagger les 25 actifs focus
+## Étape 5.2 — Tagger les 16 actifs focus
 
-Deux approches selon vos préférences et le format tenant :
+Deux approches selon vos préférences :
 
-### Approche 1 — UI (25 actifs, ~30 min)
+### Approche 1 — UI (16 actifs, ~20 min)
 
-XSIAM → **Inventory** → **Assets** → filtrer `host_name contains business.org`.
+XSIAM → **Inventory** → **Assets** → filtrer `xdm.host.hostname contains "business.org"`.
 
 Pour chaque asset de `infra/asset-inventory.md` :
 1. Cliquer l'asset → panneau détail
 2. Onglet **Tags** → **+ Add Tag**
-3. Ajouter : `zone=<zone>`, `tier=<tier>`, `owner=<owner_group>` (adapter au format tenant)
+3. Ajouter : `zone:<zone>`, `tier:<tier>`, `owner:<owner_group>` (format `key:value` avec `:`)
 
 Fastidieux mais pédagogique — recommandé si on veut vraiment comprendre où se placent les tags dans l'UI.
 
@@ -107,9 +108,9 @@ for a in ASSETS:
         print(f"⚠️  Not found: {a['hostname']}")
         continue
     tags = [
-        f"zone={a['zone']}",
-        f"tier={a['tier']}",
-        f"owner={a['owner']}",
+        f"zone:{a['zone']}",
+        f"tier:{a['tier']}",
+        f"owner:{a['owner']}",
     ]
     apply_tags(asset_id, tags)
     print(f"✅ Tagged {a['hostname']} ({asset_id}) with {tags}")
@@ -123,40 +124,40 @@ $env:XSIAM_API_KEY = "<votre_secret>"
 python bulk-tag-assets.py
 ```
 
-## Étape 5.3 — Créer les 9 groupes dynamiques par zone
+## Étape 5.3 — Créer les 7 groupes dynamiques par zone
 
 XSIAM → **Inventory** → **Assets** → **Groups** → **+ Add Group**.
 
-Pour chaque zone, créer un groupe **Dynamic** avec le filtre approprié :
+Pour chaque zone, créer un groupe **Dynamic** avec le filtre approprié (format tag `key:value` confirmé Q1) :
 
-| Nom du groupe | Type | Filtre (Approche key=value) | Filtre (Approche flat) |
-|---------------|------|------------------------------|-------------------------|
-| `grp-zone-dmz-web` | Dynamic | `tags contains "zone=dmz-web"` | `tags contains "dmz-web"` |
-| `grp-zone-dmz-edge` | Dynamic | `tags contains "zone=dmz-edge"` | `tags contains "dmz-edge"` |
-| `grp-zone-tier0` | Dynamic | `tags contains "zone=tier0"` | `tags contains "tier0"` |
-| `grp-zone-tier1` | Dynamic | `tags contains "zone=tier1"` | `tags contains "tier1"` |
-| `grp-zone-infra` | Dynamic | `tags contains "zone=infra"` | `tags contains "infra"` |
-| `grp-zone-cicd` | Dynamic | `tags contains "zone=cicd"` | `tags contains "cicd"` |
-| `grp-zone-devs-linux` | Dynamic | `tags contains "zone=devs-linux"` | `tags contains "devs-linux"` |
-| `grp-zone-endpoints-win` | Dynamic | `tags contains "zone=endpoints-win"` | `tags contains "endpoints-win"` |
-| `grp-zone-cloud` | Dynamic | `tags contains "zone=cloud"` | `tags contains "cloud"` |
+| Nom du groupe | Type | Filtre |
+|---------------|------|--------|
+| `EM-demo-zone-dmz-web` | Dynamic | `xdm.asset.tags.zone = "dmz-web"` |
+| `EM-demo-zone-dmz-edge` | Dynamic | `xdm.asset.tags.zone = "dmz-edge"` |
+| `EM-demo-zone-tier0` | Dynamic | `xdm.asset.tags.zone = "tier0"` |
+| `EM-demo-zone-tier1` | Dynamic | `xdm.asset.tags.zone = "tier1"` |
+| `EM-demo-zone-infra` | Dynamic | `xdm.asset.tags.zone = "infra"` |
+| `EM-demo-zone-cicd` | Dynamic | `xdm.asset.tags.zone = "cicd"` |
+| `EM-demo-zone-cloud` | Dynamic | `xdm.asset.tags.zone = "cloud"` |
+
+⚠️ La syntaxe exacte du filtre dépend de l'UI XSIAM — si `xdm.asset.tags.zone = "dmz-web"` ne fonctionne pas, essayer `tags contains "zone:dmz-web"` (approche substring). Voir Q1 pour le formatting Rapid7 natif.
 
 ## Étape 5.4 — Créer les 4 groupes dynamiques par owner
 
 | Nom du groupe | Filtre |
 |---------------|--------|
-| `grp-owner-secops` | `tags contains "owner=secops"` |
-| `grp-owner-it-corp` | `tags contains "owner=it-corp"` |
-| `grp-owner-appdev` | `tags contains "owner=appdev"` |
-| `grp-owner-devops` | `tags contains "owner=devops"` |
+| `EM-demo-owner-secops` | `tags contains "owner:secops"` |
+| `EM-demo-owner-it-corp` | `tags contains "owner:it-corp"` |
+| `EM-demo-owner-appdev` | `tags contains "owner:appdev"` |
+| `EM-demo-owner-devops` | `tags contains "owner:devops"` |
 
-## Étape 5.5 — Créer le groupe transverse `grp-business-tier0`
+## Étape 5.5 — Créer le groupe transverse `EM-demo-business-tier0`
 
-Utilisé par la Vulnerability Policy (runbook 07) pour escalader les cases Tier 0.
+Utilisé par la Vulnerability Policy R3 "Angle mort interne" (runbook 07) pour escalader les cases Tier 0.
 
 | Nom | Filtre |
 |-----|--------|
-| `grp-business-tier0` | `tags contains "tier=0"` |
+| `EM-demo-business-tier0` | `xdm.asset.tags.tier = "0"` |
 
 Attendu : 3 assets (srv-vpn, srv-ad-01, srv-adfs-01).
 
@@ -169,18 +170,20 @@ Impact : ils remontent dans le filtre "Low Business Impact" du funnel Command Ce
 ## Étape 5.7 — Validation
 
 XSIAM → **Inventory** → **Assets** → **Groups** :
-- Compter : 9 + 4 + 1 = 14 groupes créés
-- Chaque groupe montre un `member count` cohérent :
-  - `grp-zone-dmz-web` : 3
-  - `grp-zone-dmz-edge` : 2
-  - `grp-zone-tier0` : 2
-  - `grp-zone-tier1` : 4
-  - `grp-zone-infra` : 3 (esxi-01, nas-01, srv-print)
-  - `grp-zone-cicd` : 2
-  - `grp-zone-devs-linux` : 4 (personas partagées) + ~6 générés (selon ingestion)
-  - `grp-zone-endpoints-win` : 2 (Alice, Bob) + volume selon ingestion
-  - `grp-zone-cloud` : 2
-  - `grp-business-tier0` : 3
+- Compter : 7 zones + 4 owners + 1 tier0 = **12 groupes** `EM-demo-*` créés
+- Chaque groupe montre un `member count` cohérent (v1 Rapid7 only) :
+  - `EM-demo-zone-dmz-web` : 3 (srv-web-01, srv-web-02, srv-portail)
+  - `EM-demo-zone-dmz-edge` : 2 (srv-vpn, smtp-relay)
+  - `EM-demo-zone-tier0` : 2 (srv-ad-01, srv-adfs-01)
+  - `EM-demo-zone-tier1` : 5 (srv-db-01/02, srv-mail, srv-fs-01, srv-monitoring)
+  - `EM-demo-zone-infra` : 1 (srv-print) — v1 sans esxi-01/nas-01
+  - `EM-demo-zone-cicd` : 1 (srv-ci)
+  - `EM-demo-zone-cloud` : 2 (cloud-lb-01, cloud-app-01)
+  - `EM-demo-owner-secops` : ~4 (Tier 0 + VPN)
+  - `EM-demo-owner-it-corp` : ~6 (Tier 1 + infra + smtp)
+  - `EM-demo-owner-appdev` : 3 (DMZ web)
+  - `EM-demo-owner-devops` : ~3 (CI + cloud)
+  - `EM-demo-business-tier0` : 3 (srv-vpn, srv-ad-01, srv-adfs-01)
 
 Attendre 15-30 min pour propagation complète (Cortex documente "immediate for new/updated assets; a few hours for previously untouched assets").
 
@@ -188,7 +191,7 @@ XQL de validation :
 ```xql
 config timeframe = 1h
 | dataset = asset_groups
-| filter group_name startswith "grp-"
+| filter group_name startswith "EM-demo-"
 ```
 
 ## Suivant

@@ -53,11 +53,11 @@ Une fois les policies R1-R8 en place, dérouler le [talk track FR](narratif/talk
 | # | Hero case pinnée | Règle CVRS déclenchée |
 |---|------------------|----------------------|
 | 1 | `srv-vpn` + CVE-2024-3400 | **R2** Urgence périmètre (CVRS≥90 + Internet Exposed) |
-| 2 | `srv-mail` + CVE-2021-26855 (ProxyLogon) | **R1** Feu de forêt (KEV + Internet Exposed) |
-| 3 | `srv-adfs-01` + CVE-2020-1472 (Zerologon) | **R3** Maillon faible interne (KEV + CVRS≥90 + Tier 0) |
+| 2 | `srv-mail` + CVE-2021-26855 (ProxyLogon) | **R1** Exploitation active périmètre (KEV + Internet Exposed) |
+| 3 | `srv-adfs-01` + CVE-2020-1472 (Zerologon) | **R3** Angle mort interne (KEV + CVRS≥90 + Tier 0) |
 | 4 | `srv-web-01` + CVE-2022-22965 (Spring4Shell) | **R4** Exploit prêt (EPSS≥0.7 + Fix disponible) |
 | 5 | `srv-ci` + CVE-2021-44228 (Log4Shell) | **R4** Exploit prêt (Package-in-use) |
-| 6 | `srv-portail` + CVE-2016-3189 | **R7** Surface externe (CVRS moyen + Internet Exposed) |
+| 6 | `srv-portail` + CVE-2016-3189 | **R7** Réduction surface externe (CVRS moyen + Internet Exposed) |
 
 **Acte 4 (5 min)** — Compensating controls : WAF F5, PANW NGFW, Cortex XDR agent → effet CVRS.
 

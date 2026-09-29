@@ -49,9 +49,9 @@ Pause. Laisser la question flotter.
 > "On a défini 8 règles Business Corp, R1 à R8, toutes centrées sur le CVRS. Chacune a une sévérité, un SLA, une justification métier. On les retrouvera toutes dans les cases qu'on va analyser ensemble."
 
 Passer rapidement sur les 8 règles, insister sur 3 :
-> - **R1 'Feu de forêt'** : KEV ou EPSS≥0.9 + Internet Exposed. SLA 48h. Le lundi matin, c'est là qu'on regarde en premier.
-> - **R3 'Maillon faible interne'** : KEV + CVRS≥90 + interne + Tier 0. La cible cachée que les scanners CVSS ratent.
-> - **R7 'Surface externe à surveiller'** : hygiène ASM, on réduit la découvrabilité sur Shodan.
+> - **R1 'Exploitation active périmètre'** : KEV ou EPSS≥0.9 + Internet Exposed. SLA 48h. Le lundi matin, c'est là qu'on regarde en premier.
+> - **R3 'Angle mort interne interne'** : KEV + CVRS≥90 + interne + Tier 0. La cible cachée que les scanners CVSS ratent.
+> - **R7 'Réduction surface externe'** : hygiène ASM, on réduit la découvrabilité sur Shodan.
 
 **Transition** : "Bascule sur la console."
 
@@ -96,8 +96,8 @@ Pour chaque hero case, dérouler la structure suivante :
 
 **Ordre recommandé** (impact narratif décroissant) :
 1. **Hero 1 — R2 Urgence périmètre** (`srv-vpn` + CVE-2024-3400) — CVRS 96, KEV, exposé
-2. **Hero 2 — R1 Feu de forêt** (`srv-mail` + ProxyLogon) — KEV emblématique
-3. **Hero 3 — R3 Maillon faible** (`srv-adfs-01` + Zerologon) ← **temps fort pédagogique, 60 sec**
+2. **Hero 2 — R1 Exploitation active périmètre** (`srv-mail` + ProxyLogon) — KEV emblématique
+3. **Hero 3 — R3 Angle mort interne** (`srv-adfs-01` + Zerologon) ← **temps fort pédagogique, 60 sec**
 4. **Hero 4 — R4 Exploit prêt EPSS** (`srv-web-01` + Spring4Shell) — EPSS 87%, patch dispo
 5. **Hero 5 — R4 Exploit prêt Package-in-use** (`srv-ci` + Log4Shell) — AST valide runtime actif
 6. **Hero 6 — R7 Surface externe** (`srv-portail` + bzip2) — hygiène ASM
@@ -120,15 +120,15 @@ Pour chaque hero case, dérouler la structure suivante :
 - **Cortex XDR agent** : "Détecté sur tous les endpoints qui ont l'agent installé. Cortex regarde même la configuration du profil exploit-protection — si 'Known Vulnerable Processes Protection' est en Block, la protection est jugée Effective sur la CVE correspondante."
 
 **Pointer les contrôles manuels** :
-- **WAF F5** sur `grp-zone-dmz-web` : "Déclaré manuellement, catégorie Network Security / WAF, vendor F5. Portée : le groupe d'actifs DMZ web (`srv-web-01/02`, `srv-portail`)."
-- **PANW NGFW** sur `grp-zone-dmz-*` : "NGFW hardware — pas de télémétrie automatique donc on l'a déclaré."
+- **WAF F5** sur `EM-demo-zone-dmz-web` : "Déclaré manuellement, catégorie Network Security / WAF, vendor F5. Portée : le groupe d'actifs DMZ web (`srv-web-01/02`, `srv-portail`)."
+- **PANW NGFW** sur `EM-demo-zone-dmz-*` : "NGFW hardware — pas de télémétrie automatique donc on l'a déclaré."
 
 **Ouvrir un contrôle** : montrer les 4 statuts d'effectiveness (Effective / Partially / Not Effective / Unknown) et l'onglet Rules.
 
 > "Cortex ne dit pas 'le WAF F5 protège tout'. Il applique un moteur de règles : si la CVE est une injection SQL, alors WAF = Effective. Si c'est une élévation de privilèges locale, alors WAF = Not Applicable. **Le contrôle compensatoire est mesuré par CVE**."
 
 **Revenir à une case** (Hero 3 srv-adfs-01) :
-> "C'est pourquoi notre ADFS ressort. Pas d'agent XDR (l'équipe SecOps considère l'ADFS comme une appliance et n'a jamais déployé l'agent), pas de WAF pertinent, pas de NGFW efficace pour une exploitation Netlogon post-authent. Cortex dit : Compensating Control = Not Effective. Le CVRS reste à 92. **C'est exactement pourquoi la règle R3 'Maillon faible interne' a été écrite.**"
+> "C'est pourquoi notre ADFS ressort. Pas d'agent XDR (l'équipe SecOps considère l'ADFS comme une appliance et n'a jamais déployé l'agent), pas de WAF pertinent, pas de NGFW efficace pour une exploitation Netlogon post-authent. Cortex dit : Compensating Control = Not Effective. Le CVRS reste à 92. **C'est exactement pourquoi la règle R3 'Angle mort interne interne' a été écrite.**"
 
 **Transition** : "Reste une question : maintenant qu'on a nos 6 cases prioritaires, qui les traite ?"
 
@@ -141,10 +141,10 @@ Pour chaque hero case, dérouler la structure suivante :
 > "Chaque asset appartient à un owner group, qu'on a défini via les tags."
 
 Ouvrir Inventory → Assets → **Groups** :
-- `grp-owner-secops` (secops@business.org) — Tier 0, VPN, ADFS
-- `grp-owner-it-corp` (it-corp@business.org) — Tier 1, endpoints Win, infra
-- `grp-owner-appdev` (appdev@business.org) — DMZ web, portail
-- `grp-owner-devops` (devops@business.org) — CI/CD, dev Linux, cloud
+- `EM-demo-owner-secops` (secops@business.org) — Tier 0, VPN, ADFS
+- `EM-demo-owner-it-corp` (it-corp@business.org) — Tier 1, endpoints Win, infra
+- `EM-demo-owner-appdev` (appdev@business.org) — DMZ web, portail
+- `EM-demo-owner-devops` (devops@business.org) — CI/CD, dev Linux, cloud
 
 > "Résultat : quand la case Hero 3 (ADFS + Zerologon, R3) apparaît, elle atterrit chez SecOps. Quand la Hero 1 (VPN + PAN-OS, R2) apparaît, aussi SecOps. Quand Hero 4 (web + Spring4Shell, R4) apparaît, elle va chez AppDev. **Fini les emails 'quelqu'un peut regarder ?' en copie de 15 personnes.**"
 
@@ -198,7 +198,7 @@ Laisser 5-10 min de Q&R hors chrono démo.
 
 ### Adaptation par audience
 - **Audience très technique (SOC L2/L3)** : ajouter 5 min sur XQL derrière les cases (`dataset = uvm_findings`) et sur l'API de tags/groupes
-- **Audience direction (CISO, DAF)** : réduire l'acte 3 à 2 hero cases (R1 Feu de forêt + R3 Maillon faible), allonger acte 6 sur le ROI et la mesure d'impact
+- **Audience direction (CISO, DAF)** : réduire l'acte 3 à 2 hero cases (R1 Exploitation active périmètre + R3 Angle mort interne), allonger acte 6 sur le ROI et la mesure d'impact
 - **Audience compliance (RSSI grand groupe)** : ajouter mention de la traçabilité audit (chaque décision de dépriorisation est loggée) et de la conformité ANSSI/NIS2 (R5 "Sans patch" impose un contrôle compensatoire — c'est du NIS2-compliant)
 
 ### Timing v1 — délai d'ingestion à anticiper

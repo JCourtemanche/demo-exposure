@@ -28,15 +28,15 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 - Vue Case → CVRS chip = 96
 - Onglet Overview : badge "Internet Exposed" (ASM inféré via public IP) + "In CISA KEV"
 - Onglet Risk Details : Asset Risk = High, Compensating Controls = Not Effective
-- Vulnerability Policy = `POL-BC-R2-Urgence-Perimetre` déclenchée
+- Vulnerability Policy = `EM-demo-POL-R2-Critical-Perimeter-CVRS90` déclenchée
 
 ---
 
-## Hero Case 2 — Feu de forêt (R1)
+## Hero Case 2 — Exploitation active périmètre (R1)
 
 | Champ | Valeur |
 |-------|--------|
-| **Règle déclenchée** | **R1** — Feu de forêt (KEV OR EPSS≥0.9) + Internet Exposed |
+| **Règle déclenchée** | **R1** — Exploitation active périmètre (KEV OR EPSS≥0.9) + (Internet Exposed OR DMZ) |
 | **CVE principale** | CVE-2021-26855 (ProxyLogon Exchange Server SSRF) |
 | **Asset** | `srv-mail.business.org` (natif Rapid7) |
 | **IP publique** | 203.0.113.20 |
@@ -46,7 +46,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 | **SLA** | 48 h |
 
 **Talk track (30 sec)** :
-> "Notre Exchange, exposé pour l'accès webmail. ProxyLogon est dans le catalogue CISA KEV depuis 2021 : ça veut dire qu'il existe des scanners automatiques qui cherchent cette faille sur Internet 24h/24. Même score CVSS que d'autres, mais **le badge KEV nous dit 'un attaquant lambda peut le faire ce soir'**. Règle R1 Feu de forêt : SLA 48h. Priorité absolue."
+> "Notre Exchange, exposé pour l'accès webmail. ProxyLogon est dans le catalogue CISA KEV depuis 2021 : ça veut dire qu'il existe des scanners automatiques qui cherchent cette faille sur Internet 24h/24. Même score CVSS que d'autres, mais **le badge KEV nous dit 'un attaquant lambda peut le faire ce soir'**. Règle R1 Exploitation active périmètre : SLA 48h. Priorité absolue."
 
 **Ce qu'on montre à l'écran** :
 - Overview → badge orange "In CISA KEV"
@@ -59,7 +59,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 
 | Champ | Valeur |
 |-------|--------|
-| **Règle déclenchée** | **R3** — Maillon faible interne (KEV + CVRS≥90 + Interne + Tier 0) |
+| **Règle déclenchée** | **R3** — Angle mort interne (KEV + CVRS≥90 + Interne + Tier 0) |
 | **CVE principale** | CVE-2020-1472 (Zerologon — Netlogon protocol RCE) |
 | **Asset** | `srv-adfs-01.business.org` (**extra BC** injecté) |
 | **IP publique** | Aucune — asset interne |
@@ -74,7 +74,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 **Ce qu'on montre à l'écran** :
 - Overview → CVRS ≈ 92, badge KEV, Internet Exposed = False
 - Onglet Risk Details → facteur "Compensating Controls" = badge rouge "Not Effective" ou "Unknown"
-- Asset Group : `grp-business-tier0` — c'est le trigger de la partie "Asset Group in {Prod critique}" de R3
+- Asset Group : `EM-demo-business-tier0` — c'est le trigger de la partie "Asset Group in {Prod critique}" de R3
 - Comparer côte-à-côte : ce même Zerologon sur un serveur Windows Tier 1 avec XDR (CVRS descend à 55-60)
 
 ---
@@ -83,7 +83,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 
 | Champ | Valeur |
 |-------|--------|
-| **Règle déclenchée** | **R4** — Exploit prêt sans compensation (EPSS≥0.7 + CVRS≥80 + Fix Available) |
+| **Règle déclenchée** | **R4** — Exploit prêt patchable (EPSS≥0.7 + CVRS≥80 + Fix Available) |
 | **CVE principale** | CVE-2022-22965 (Spring4Shell — Spring Framework RCE) |
 | **Asset** | `srv-web-01.business.org` (natif Rapid7) |
 | **IP publique** | 203.0.113.10 |
@@ -106,7 +106,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 
 | Champ | Valeur |
 |-------|--------|
-| **Règle déclenchée** | **R4** — Exploit prêt sans compensation (validé par Package-In-Use) |
+| **Règle déclenchée** | **R4** — Exploit prêt patchable (validé par Package-In-Use) |
 | **CVE principale** | CVE-2021-44228 (Log4Shell — Apache Log4j) |
 | **Asset** | `srv-ci.business.org` (natif Rapid7) |
 | **IP publique** | Aucune (CI interne) |
@@ -128,7 +128,7 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 
 | Champ | Valeur |
 |-------|--------|
-| **Règle déclenchée** | **R7** — Surface externe à surveiller (CVRS moyen + Internet Exposed) |
+| **Règle déclenchée** | **R7** — Réduction surface externe (CVRS moyen + Internet Exposed OR DMZ) |
 | **CVE principale** | CVE-2016-3189 (bzip2 use-after-free) |
 | **Asset** | `srv-portail.business.org` (**extra BC** injecté) |
 | **IP publique** | 203.0.113.30 |
@@ -159,11 +159,11 @@ Chaque hero case = **1 (asset, CVE) réel** issu du catalogue déterministe du s
 | CVE | Nom court | Asset pinné | Règle | Sim source |
 |-----|-----------|-------------|-------|------------|
 | CVE-2024-3400 | PAN-OS GlobalProtect | `srv-vpn.business.org` | R2 Urgence périmètre | Rapid7 |
-| CVE-2021-26855 | ProxyLogon | `srv-mail.business.org` | R1 Feu de forêt | Rapid7 |
-| CVE-2020-1472 | Zerologon | `srv-adfs-01.business.org` | R3 Maillon faible | Rapid7 (extra BC) |
+| CVE-2021-26855 | ProxyLogon | `srv-mail.business.org` | R1 Exploitation active périmètre | Rapid7 |
+| CVE-2020-1472 | Zerologon | `srv-adfs-01.business.org` | R3 Angle mort interne | Rapid7 (extra BC) |
 | CVE-2022-22965 | Spring4Shell | `srv-web-01.business.org` | R4 Exploit prêt (EPSS) | Rapid7 |
 | CVE-2021-44228 | Log4Shell | `srv-ci.business.org` | R4 Exploit prêt (Package-in-use) | Rapid7 |
-| CVE-2016-3189 | bzip2 use-after-free | `srv-portail.business.org` | R7 Surface externe | Rapid7 (extra BC) |
+| CVE-2016-3189 | bzip2 use-after-free | `srv-portail.business.org` | R7 Réduction surface externe | Rapid7 (extra BC) |
 
 Toutes présentes dans le `VULN_CATALOG_SEED` de Rapid7 (voir `config/catalogs-inventory.md`).
 
