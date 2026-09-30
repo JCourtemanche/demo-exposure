@@ -354,6 +354,52 @@ def patch_rapid7_assets_routes(assets_routes_py: Path) -> bool:
     return True
 
 
+# --- Patch pour Rapid7 generators/report_csv.py — CRUCIAL pour ingestion XSIAM ---
+# Le pack Rapid7 XSIAM lit un CSV Data Warehouse Report (pas /api/3/assets/<id>/tags).
+# Ce CSV est généré par _asset_row() qui HARDCODE 2 tags. Sans patch ici, les tags
+# Business Corp injectés dans routes/assets.py sont invisibles côté XSIAM.
+REPORT_CSV_MARKER = "# BC-patch: append Business Corp custom tags to CSV report"
+
+REPORT_CSV_INJECTION = '''    # BC-patch: append Business Corp custom tags to CSV report
+    try:
+        from .business_corp_overrides import ASSET_TAGS as _BC_ASSET_TAGS
+        _bc_host = (asset.get('hostName') or '').lower()
+        for _bc_name, _bc_type in _BC_ASSET_TAGS.get(_bc_host, []):
+            tags.append({'Name': _bc_name, 'Type': _bc_type})
+    except ImportError:
+        pass
+'''
+
+
+def patch_rapid7_report_csv(report_csv_py: Path) -> bool:
+    """Enrich _asset_row() to include Business Corp tags in the SQL Data Warehouse CSV.
+
+    Idempotent — checks for BC marker before injecting.
+    """
+    src = report_csv_py.read_text(encoding="utf-8")
+    if REPORT_CSV_MARKER in src:
+        print(f"  ⏭️  {report_csv_py.name} déjà patché (CSV tags) — skip")
+        return True
+
+    # Cherche le bloc `tags = [...]` avec les 2 tags hardcodés dans _asset_row
+    # Le pattern matche jusqu'à ']' de fermeture (avec la virgule et les 2 tags dedans)
+    pattern = re.compile(
+        r"(\n    tags = \[\n"
+        r"        \{'Name': 'Business Corp', 'Type': 'custom'\},\n"
+        r"        \{'Name': f'site-\{asset\[\"sites\"\]\[0\]\}', 'Type': 'location'\},\n"
+        r"    \])"
+    )
+    if not pattern.search(src):
+        print(f"  ⚠️  Rapid7 generators/report_csv.py: pattern hardcoded tags introuvable")
+        print(f"     → CSV tags Business Corp non injectés → XSIAM ne verra pas les tags custom")
+        return False  # Bloquant : sans ça, la démo tags ne fonctionne pas
+
+    src = pattern.sub(r"\1\n" + REPORT_CSV_INJECTION, src, count=1)
+    report_csv_py.write_text(src, encoding="utf-8")
+    print(f"  ✅ Rapid7: {report_csv_py.name} patché (tags custom ajoutés au CSV DW)")
+    return True
+
+
 def patch_cyberwatch(assets_py: Path) -> bool:
     src = assets_py.read_text(encoding="utf-8")
     if is_patched(src):
@@ -462,6 +508,13 @@ def main() -> int:
                     success = False
             else:
                 print(f"  ⚠️  Rapid7: {assets_routes_py} introuvable — skip patch assets routes")
+            # Patch CRUCIAL sur generators/report_csv.py (le pack XSIAM lit le CSV, pas /tags)
+            report_csv_py = fork_path / "simulator" / "generators" / "report_csv.py"
+            if report_csv_py.exists():
+                if not patch_rapid7_report_csv(report_csv_py):
+                    success = False
+            else:
+                print(f"  ⚠️  Rapid7: {report_csv_py} introuvable — skip patch report_csv")
         elif sim_key == "cyberwatch":
             success = patch_cyberwatch(assets_py)
         else:
