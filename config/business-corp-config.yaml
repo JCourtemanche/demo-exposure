@@ -157,20 +157,23 @@ hero_pinning:
     narrative: "Vuln modérée sur portail public — hygiène ASM"
 
 # ------------------------------------------------------------
-# 3. INTERNET EXPOSURE — IPs publiques pour marquer les assets exposés
+# 3. INTERNET EXPOSURE — IP publique en REMPLACEMENT (v1.3 pivot)
 # ------------------------------------------------------------
 #
-# Cortex Exposure Management évalue l'Internet Exposure via ASM/CNA/AST.
-# Sans addon ASM (Xpanse), Cortex peut néanmoins déduire l'exposition à
-# partir de la présence d'une IP publique dans le champ `addresses` de
-# l'asset ingéré.
+# Le pack Rapid7 XSIAM ingère via Data Warehouse endpoint qui ne remonte
+# QU'UNE seule IP par asset (dim_asset_ip_address_ip_address mono-valué).
+# Solution v1.3 : le patch bloc 6 apply-patches.py REMPLACE l'IP privée
+# par l'IP publique dans le champ `ip` (et `addresses[0].ip`) de l'asset,
+# quand l'asset apparaît dans additional_public_ips ci-dessous.
 #
-# On enrichit donc les assets stratégiques (VPN, web DMZ, mail, portail,
-# smtp-relay) avec une IP publique en plus de leur IP privée. Le sim
-# émet ainsi `addresses: [{"ip": "10.10.20.51"}, {"ip": "203.0.113.10"}]`.
+# Résultat côté XSIAM :
+#   - dim_asset_ip_address_ip_address = ["203.0.113.5"]  (IP publique)
+#   - ipv4 = "203.0.113.5"
+#   - hostname reste "srv-vpn.business.org" (cohérence narrative)
 #
-# Range utilisé : 203.0.113.0/24 (RFC 5737 TEST-NET-3, non-routable — safe
-# pour démo, aucun risque d'atteindre une vraie ressource).
+# Cortex peut alors déduire Internet Exposed nativement depuis l'IP publique.
+#
+# Range utilisé : 203.0.113.0/24 (RFC 5737 TEST-NET-3, non-routable — safe démo).
 # ------------------------------------------------------------
 
 additional_public_ips:

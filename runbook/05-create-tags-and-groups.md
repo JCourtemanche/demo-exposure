@@ -200,6 +200,7 @@ Utilisé par la Vulnerability Policy R3 "Angle mort interne" (runbook 07) pour e
 
 Attendu : 3 assets (srv-vpn, srv-ad-01, srv-adfs-01).
 
+
 ## Étape 5.5 — Attribution "Business Criticality" (optionnel, boost narratif)
 
 XSIAM → **Inventory** → **Assets** → sélectionner les assets Tier 0 → **Set Business Criticality** → **Critical**.

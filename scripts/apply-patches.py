@@ -255,19 +255,25 @@ def patch_rapid7(assets_py: Path) -> bool:
         print(f"  ⚠️  Rapid7: 'seed = EXTRA_SERVER_SEED[:count]' introuvable")
         print(f"     → Les extra_assets custom peuvent être ignorés si count reste = 12.")
 
-    # 6. Enrichir les assets avec IPs publiques (Internet Exposed pour Cortex)
-    # Sed injection avant chaque `return assets`. Le hook est IDEMPOTENT :
-    # il n'ajoute la public IP que si elle n'est pas déjà dans addresses.
-    # Nécessaire car _persona_assets + _extra_assets + build_assets_catalog
-    # peuvent tous appeler le hook = 3× duplication sinon.
-    marker_public_ip = "# BC-patch: enrich addresses with public IPs"
+    # 6. REMPLACER l'IP privée par l'IP publique pour les assets exposés (v1.3).
+    # Le pack Rapid7 XSIAM ingère via Data Warehouse endpoint qui remonte UNE
+    # seule IP par asset (champ mono-valué). On doit donc remplacer l'IP
+    # dans le champ principal `ip` ET dans addresses[0] pour que Cortex la voie.
+    # Le hook est IDEMPOTENT : ne remplace que si l'IP privée est encore là.
+    marker_public_ip = "# BC-patch: REPLACE private IP with public IP for exposed assets"
     if marker_public_ip not in src:
         enrichment = (
             "\n    " + marker_public_ip + "\n"
             "    for _a in assets:\n"
             "        _pub = _BC_PUBLIC_IPS.get((_a.get('hostName') or '').lower())\n"
-            "        if _pub and not any(x.get('ip') == _pub for x in _a.get('addresses', [])):\n"
-            "            _a.setdefault('addresses', []).append({'ip': _pub})\n"
+            "        if _pub and _a.get('ip') != _pub:\n"
+            "            _a['ip'] = _pub\n"
+            "            _addrs = _a.get('addresses') or []\n"
+            "            if _addrs:\n"
+            "                _addrs[0] = {**_addrs[0], 'ip': _pub}\n"
+            "            else:\n"
+            "                _addrs = [{'ip': _pub}]\n"
+            "            _a['addresses'] = _addrs\n"
             "    return assets"
         )
         # Remplacer chaque `    return assets` (indentation à 4 espaces) par le bloc
@@ -275,7 +281,7 @@ def patch_rapid7(assets_py: Path) -> bool:
         matches = pattern_return.findall(src)
         if matches:
             src = pattern_return.sub(enrichment, src)
-            print(f"  ✓ Rapid7: {len(matches)} public-IP enrichissement(s) inséré(s) — hook idempotent")
+            print(f"  ✓ Rapid7: {len(matches)} public-IP remplacement(s) inséré(s) — hook idempotent")
         else:
             print(f"  ⚠️  Rapid7: '    return assets' introuvable — IP publiques non injectées")
 
