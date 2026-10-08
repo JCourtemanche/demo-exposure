@@ -52,7 +52,7 @@ Exemple sur `srv-ad-01.business.org` + CVE-2016-3189 :
 - Severity : SEV_030_MEDIUM
 - Compensating controls influencent la sévérité effective (visible dans le finding)
 
-**Impact** : les 8 policies R1-R8 basées sur CVRS fonctionnent bien au niveau finding. Un même CVE sur 2 assets différents peut avoir 2 CVRS différents selon les controls.
+**Impact** : les policies basées sur CVRS (R1-R5 en v1.4) fonctionnent bien au niveau finding. Un même CVE sur 2 assets différents peut avoir 2 CVRS différents selon les controls.
 
 ---
 
@@ -96,7 +96,15 @@ Policy Match Conditions:
 
 Ainsi les assets DMZ sont traités comme Internet Exposed même si Cortex ne l'a pas détecté nativement.
 
-**Impact runbook 07** : intégrer cette clause OR dans les policies R1, R2, R7 (celles qui dépendent d'Internet Exposed).
+**Impact runbook 07** : intégrer cette clause OR dans les policies R1, R2, R5 (v1.4 ; R7 en v1.1) (celles qui dépendent d'Internet Exposed).
+
+---
+
+## ✅ Q5b — Internet Exposed déduit d'une IP publique remontée par le scanner ? (v1.4)
+
+**Réponse : non.** Vérifié sur tenant : `internet_exposed` est **vide** (pas `false`) dans `uvm_findings` pour les 6 assets Rapid7 qui remontent une IP 203.0.113.X. D'après la documentation Cortex, l'exposition provient de l'ASM / Cloud Network Analyzer avec confirmation par scan externe ; une IP déclarée par un scanner tiers ne suffit pas. La plage TEST-NET (RFC 5737), non routable, ne répondra de toute façon jamais au scan externe.
+
+**Impact** : les policies « périmètre » (R1, R2, R5) sont cadrées sur l'asset group `EM-demo-grp-Business-Corp-exposed` (tag `exposure:internet` émis par le sim). Ne pas promettre de badge « Internet Exposed » en démo.
 
 ---
 

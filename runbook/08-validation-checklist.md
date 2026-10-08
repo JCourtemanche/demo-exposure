@@ -15,48 +15,55 @@ Objectif : vérifier bout-en-bout que la démo est prête. À dérouler intégra
 ## Section B — Ingestion XSIAM
 
 - [ ] **Intégration Rapid7** en status "Active — Last fetch < 2h" (Settings → Data Sources)
-- [ ] XQL : `dataset = asset_inventory | filter xdm.asset.strong_id contains "rapid7" | comp count()` → **≥ 16 assets**
-- [ ] XQL : `dataset = rapid7_nexpose_vulnerabilities_raw | comp count()` → **≥ 150 findings**
-- [ ] XQL : `dataset = uvm_findings | filter _vendor contains "Rapid7" | comp count()` → **≥ 100 findings normalisés** (peuple ~2h après le raw)
+- [ ] Assets Business Corp présents (22 attendus : 16 serveurs + 6 postes) :
+```xql
+dataset = uvm_findings
+| filter asset_name contains "business.org" or asset_name ~= "^BSNS-"
+| comp count() as findings, count_distinct(asset_name) as assets
+```
+→ **22 assets, ~115 findings** (v1.4 : uniquement des CVE cohérentes avec l'OS et les logiciels ; ~2 h après l'ingestion brute)
 
-## Section C — Enrichissement Vulnerability Intelligence
+## Section C — Enrichissement Vulnerability Intelligence et cohérence
 
-Pour au moins **3 CVE hero** (CVE-2021-44228 Log4Shell, CVE-2021-26855 ProxyLogon, CVE-2020-1472 Zerologon), vérifier :
+Pour les CVE hero, vérifier l'enrichissement :
 
 ```xql
-config timeframe = 24h
-| dataset = uvm_findings
-| filter cve = "CVE-2021-44228"
-| fields xdm.host.hostname, cve, cvss_score, epss_score, kev, exploit_maturity, cvrs
-| limit 5
+dataset = uvm_findings
+| filter vulnerability_id in ("CVE-2024-3400", "CVE-2021-26855", "CVE-2020-1472", "CVE-2021-44228")
+| dedup asset_name, vulnerability_id
+| fields asset_name, operating_system, vulnerability_id, cvss_score, epss_score, has_kev,
+         exploitable, cortex_vulnerability_risk_score
 ```
 
-- [ ] `cvss_score` peuplé (numérique, ex 10.0)
-- [ ] `epss_score` peuplé (numérique 0-1)
-- [ ] `kev` = true (pour CVE réellement dans KEV)
-- [ ] `exploit_maturity` peuplé (ex "high", "functional")
-- [ ] **`cvrs` peuplé** (0-100) — **critique pour les 8 policies R1-R8**
+- [ ] `cvss_score`, `epss_score` peuplés
+- [ ] `has_kev` = true (CVE réellement dans KEV)
+- [ ] **`cortex_vulnerability_risk_score` peuplé** (0-100) : critique pour les 5 policies
+- [ ] `srv-vpn` remonte l'OS **PAN-OS** (et non Ubuntu)
 
-⚠️ Si un de ces champs est vide → l'enrichissement Vulnerability Intelligence n'a pas encore tourné. Attendre 1h supplémentaire (délai typique ~2h après première ingestion) et re-tester. Si toujours vide après 4h, ouvrir un ticket support PANW.
-
-## Section D — Public IPs (Internet Exposed)
-
-- [ ] Les 6 assets Internet Exposed ont bien leur IP publique visible :
+Contrôle de cohérence (aucun résultat attendu) : pas de CVE Exchange / Windows sur un Mac ou un Linux, pas de CVE Apple sur un Windows :
 ```xql
-config timeframe = 24h
-| dataset = asset_inventory
-| filter xdm.host.hostname in ("srv-vpn.business.org", "srv-web-01.business.org",
-                              "srv-web-02.business.org", "srv-mail.business.org",
-                              "srv-portail.business.org", "smtp-relay.business.org")
-| fields xdm.host.hostname, xdm.host.ipv4_addresses
+dataset = uvm_findings
+| filter asset_name contains "business.org" or asset_name ~= "^BSNS-"
+| filter (operating_system contains "macOS" or operating_system contains "iOS" or operating_system contains "Linux")
+         and vulnerability_id in ("CVE-2021-26855", "CVE-2022-41040", "CVE-2022-41082", "CVE-2020-1472", "CVE-2021-34527", "CVE-2024-38063")
+     or (operating_system contains "Windows" and vulnerability_id in ("CVE-2023-42917", "CVE-2023-41064", "CVE-2023-41993", "CVE-2024-23222"))
+| fields asset_name, operating_system, vulnerability_id
 ```
-Chacun doit lister au moins **2 IPs** (privée 10.10.20.X + publique 203.0.113.X)
-- [ ] Le flag `Internet Exposed` est visible dans les Vulnerability Issues pour au moins 1 hero case (via ASM ou déduction native)
+
+⚠️ Si les champs d'enrichissement sont vides → Vulnerability Intelligence n'a pas encore tourné. Attendre 1 h supplémentaire (délai typique ~2 h après la première ingestion). Si toujours vide après 4 h, ouvrir un ticket support PANW.
+
+⚠️ Des paires incohérentes peuvent subsister si elles proviennent d'une ingestion antérieure à la v1.4 : vérifier leur `last_observed`, et leur statut une fois le nouveau sim ingéré.
+
+## Section D — Zone exposée
+
+- [ ] Les 6 assets à IP publique remontent leur IP 203.0.113.X (`ipv4_addresses` dans `uvm_findings`) et le tag `exposure:internet`
+- [ ] L'asset group `EM-demo-grp-Business-Corp-exposed` contient 6 membres : srv-vpn, srv-web-01, srv-web-02, srv-mail, srv-portail, smtp-relay
+- [ ] Normal : `internet_exposed` reste **vide** (Cortex ne déduit pas ce flag d'une IP remontée par un scanner ; il vient de l'ASM / CNA)
 
 ## Section E — Tags et groupes
 
-- [ ] 14 groupes créés (7 zones + 4 owner + 1 tier0 + `EM-demo-business-tier0`)
-- [ ] Chaque groupe a le bon `member count` (voir tableau `runbook/05` § 5.7)
+- [ ] Groupes `EM-demo-*` créés (zones, owners, tier0) + `EM-demo-grp-Business-Corp` (22) + `EM-demo-grp-Business-Corp-exposed` (6)
+- [ ] Chaque groupe a le bon `member count` (voir `runbook/05`)
 - [ ] Les 16 assets focus sont tous taggés (spot check 5 assets via l'UI)
 
 ## Section F — Compensating Controls
@@ -64,18 +71,16 @@ Chacun doit lister au moins **2 IPs** (privée 10.10.20.X + publique 203.0.113.X
 - [ ] 4 contrôles manuels créés : `WAF-F5-BigIP-Prod`, `NGFW-PANW-Perimeter`, `Cortex-XDR-Agent-Endpoints`, `VPN-Concentrator-RemoteAccess`
 - [ ] Tous en status **Active** (pas Discovery)
 - [ ] Portée (Asset Groups) correcte (spot check 1 contrôle)
-- [ ] `srv-adfs-01`, `srv-vpn`, `srv-print` sont **exclus** du scope XDR (pour matérialiser Hero 3 + Hero 1)
+- [ ] `srv-ad-01`, `srv-vpn`, `srv-print` sont **exclus** du scope XDR (pour matérialiser Hero 3 + Hero 1)
 
-## Section G — Vulnerability Policies (8 règles CVRS R1-R8)
+## Section G — Vulnerability Policies (5 règles CVRS R1-R5)
 
-- [ ] `EM-demo-POL-R1-Critical-KEV-Internet-Exposed` enabled, position 1
-- [ ] `EM-demo-POL-R2-Critical-Perimeter-CVRS90` enabled, position 2
-- [ ] `EM-demo-POL-R3-High-Internal-Tier0-KEV` enabled, position 3
-- [ ] `EM-demo-POL-R4-High-Weaponized-Patchable` enabled, position 4
-- [ ] `EM-demo-POL-R5-High-NoPatch-Compensating` enabled, position 5
-- [ ] `EM-demo-POL-R6-Medium-Batch-Hygiene` enabled, position 6
-- [ ] `EM-demo-POL-R7-Medium-External-Surface` enabled, position 7
-- [ ] `EM-demo-POL-R8-Low-Rolling-Update` enabled, position 8
+- [ ] `EM-demo-POL-R1-Critical-KEV-Internet-Exposed` enabled, position 1, groupe exposé
+- [ ] `EM-demo-POL-R2-Critical-Perimeter-CVRS90` enabled, position 2, groupe exposé
+- [ ] `EM-demo-POL-R3-High-Internal-Tier0-KEV` enabled, position 3, tout Business Corp
+- [ ] `EM-demo-POL-R4-High-Weaponized` enabled, position 4, tout Business Corp
+- [ ] `EM-demo-POL-R5-Medium-External-Surface` enabled, position 5, groupe exposé
+- [ ] Colonne **Open Issues** non nulle pour R1 à R5. Si 0 : vérifier qu'aucune automation du tenant ne ferme les issues à leur création (runbook 07, § 7.7)
 
 ## Section H — Command Center Funnel
 
@@ -83,50 +88,46 @@ XSIAM → **Posture Management** → **Exposure Management** → **Command Cente
 
 - [ ] Funnel complet visible : Vulnerabilities → Duplicative → Unique → Deprioritized → Open Issues → Cases
 - [ ] Chiffres cohérents (décroissants)
-- [ ] Onglet **Cases → Require Attention** : entre 6 et 20 cases visibles
-- [ ] Décomposition Deprioritized montre 5 filtres actifs (4 natifs + 1 policy)
+- [ ] Onglet **Cases → Require Attention** : quelques cases visibles, dont les heroes
+- [ ] Décomposition Deprioritized montre les filtres natifs + Deprioritized by Policy
 
-## Section I — Les 6 hero cases pinnées
+## Section I — Les 6 hero cases épinglées
 
-Pour chaque hero case (voir `narratif/hero-cases.md`), ouvrir la case correspondante et vérifier :
+Pour chaque hero case (voir `narratif/hero-cases.md`), ouvrir l'issue correspondante et vérifier :
 
-### Hero 1 — R2 Urgence Périmètre
-- [ ] Case existe sur `srv-vpn.business.org` avec CVE-2024-3400
-- [ ] CVRS ≥ 90
-- [ ] Badge Internet Exposed visible
-- [ ] Badge CISA KEV visible
-- [ ] Policy matched : `EM-demo-POL-R2-Critical-Perimeter-CVRS90`
+### Hero 1 — R1 Urgence périmètre
+- [ ] Issue sur `srv-vpn.business.org` (OS PAN-OS) avec CVE-2024-3400
+- [ ] CVRS ≥ 90, badge CISA KEV
+- [ ] Policy : `EM-demo-POL-R1-Critical-KEV-Internet-Exposed`
 
 ### Hero 2 — R1 Exploitation active périmètre
-- [ ] Case existe sur `srv-mail.business.org` avec CVE-2021-26855
-- [ ] Badge CISA KEV présent
-- [ ] Exploit Maturity = High/Functional
-- [ ] Policy matched : `EM-demo-POL-R1-Critical-KEV-Internet-Exposed`
+- [ ] Issue sur `srv-mail.business.org` avec CVE-2021-26855
+- [ ] Badge CISA KEV, Exploit Maturity High/Functional
+- [ ] Policy : `EM-demo-POL-R1-Critical-KEV-Internet-Exposed` (si R3 : srv-mail n'est pas dans le groupe exposé)
 
-### Hero 3 — R3 Maillon Faible interne
-- [ ] Case existe sur `srv-adfs-01.business.org` avec CVE-2020-1472
+### Hero 3 — R3 Angle mort interne
+- [ ] Issue sur `srv-ad-01.business.org` avec CVE-2020-1472
 - [ ] CVRS ≥ 90
-- [ ] Internet Exposed = **False**
 - [ ] Asset Group inclut `EM-demo-business-tier0`
 - [ ] Compensating Control facteur = "Not Effective" ou "Unknown"
-- [ ] Policy matched : `EM-demo-POL-R3-High-Internal-Tier0-KEV`
+- [ ] Policy : `EM-demo-POL-R3-High-Internal-Tier0-KEV`
 
-### Hero 4 — R4 Exploit prêt EPSS
-- [ ] Case existe sur `srv-web-01.business.org` avec CVE-2022-22965
-- [ ] EPSS ≥ 0.7
-- [ ] Fix Available = True
-- [ ] Policy matched : `EM-demo-POL-R4-High-Weaponized-Patchable`
+### Hero 4 — R1 Exploit prêt (zone exposée)
+- [ ] Issue sur `srv-web-01.business.org` avec CVE-2022-22965
+- [ ] EPSS élevé, Fix Available = True
+- [ ] Policy : `EM-demo-POL-R1-Critical-KEV-Internet-Exposed`
+- [ ] Illustration R2 : CVE-2024-38063 sur le même serveur, policy `EM-demo-POL-R2-Critical-Perimeter-CVRS90`
 
-### Hero 5 — R4 Exploit prêt Package-in-use
-- [ ] Case existe sur `srv-ci.business.org` avec CVE-2021-44228
+### Hero 5 — R3 Risque confirmé
+- [ ] Issue sur `srv-ci.business.org` avec CVE-2021-44228
 - [ ] Environment Risk = "Package In Use" (si AST activé)
-- [ ] Policy matched : `EM-demo-POL-R4-High-Weaponized-Patchable`
+- [ ] Policy : `EM-demo-POL-R3-High-Internal-Tier0-KEV`
+- [ ] Illustration R4 : CVE-2024-23917 (TeamCity) sur le même serveur, policy `EM-demo-POL-R4-High-Weaponized`
 
-### Hero 6 — R7 Surface externe
-- [ ] Case existe sur `srv-portail.business.org` avec CVE-2016-3189
+### Hero 6 — R5 Surface externe
+- [ ] Issue sur `srv-portail.business.org` avec CVE-2016-3189
 - [ ] Sévérité = Medium
-- [ ] Internet Exposed = True
-- [ ] Policy matched : `EM-demo-POL-R7-Medium-External-Surface`
+- [ ] Policy : `EM-demo-POL-R5-Medium-External-Surface`
 
 ## Section J — Répétition talk track
 

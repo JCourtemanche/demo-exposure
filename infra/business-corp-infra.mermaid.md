@@ -9,23 +9,23 @@ flowchart TB
     Internet((Internet<br/>203.0.113.0/24)) --> WAF[WAF F5 Big-IP]
     Internet --> NGFW[PANW NGFW Périmétrique]
 
-    subgraph DMZ_WEB["zone-dmz-web (WAF + NGFW + XDR — 3 assets Internet Exposed)"]
+    subgraph DMZ_WEB["zone-dmz-web (WAF + NGFW + XDR — 3 assets exposés)"]
         Web1[srv-web-01<br/>203.0.113.10 · WinSrv 2019<br/>Hero 4: Spring4Shell]
         Web2[srv-web-02<br/>203.0.113.11 · Ubuntu 22.04]
         Portail[srv-portail<br/>203.0.113.30 · Ubuntu 22.04<br/>Hero 6: bzip2]
     end
 
     subgraph DMZ_EDGE["zone-dmz-edge (NGFW seul — 2 assets exposés)"]
-        VPN[srv-vpn<br/>203.0.113.5 · Ubuntu 20.04<br/>Hero 1: CVE-2024-3400<br/>PAS d'agent XDR]
+        VPN[srv-vpn<br/>203.0.113.5 · PAN-OS 10.2<br/>Hero 1: CVE-2024-3400<br/>pare-feu, pas d'agent]
         SMTP[smtp-relay<br/>203.0.113.40 · Debian 12]
     end
 
     WAF --> DMZ_WEB
     NGFW --> DMZ_EDGE
 
-    subgraph TIER0["zone-tier0 (XDR sur AD, PAS sur ADFS)"]
-        AD[srv-ad-01<br/>WinSrv 2022<br/>Active Directory]
-        ADFS[srv-adfs-01<br/>WinSrv 2022<br/>Hero 3: Zerologon<br/>PAS d'agent XDR]
+    subgraph TIER0["zone-tier0 (XDR sur ADFS, PAS sur le DC)"]
+        AD[srv-ad-01<br/>WinSrv 2022 · contrôleur de domaine<br/>Hero 3: Zerologon<br/>PAS d'agent XDR]
+        ADFS[srv-adfs-01<br/>WinSrv 2022<br/>Fédération SSO]
     end
 
     subgraph TIER1["zone-tier1 (XDR)"]
@@ -62,15 +62,15 @@ flowchart TB
 
     class Web1,Web2,Portail,VPN,SMTP,Mail exposed
     class AD,ADFS,DB1,DB2,FS critical
-    class Print,VPN,ADFS nocontrol
+    class Print,VPN,AD nocontrol
     class CI,Mon,CloudLB,CloudApp normal
 ```
 
 ## Légende
 
-- **Rouge** (`exposed`) : actifs avec IP publique — cibles principales des règles R1, R2, R4, R7
+- **Rouge** (`exposed`) : actifs avec IP publique (tag `exposure:internet`) — périmètre des règles R1, R2, R5
 - **Orange** (`critical`) : actifs Tier 0/1 critiques — porteurs de la Vulnerability Policy R3 (Angle mort interne)
-- **Jaune** (`nocontrol`) : actifs sans Cortex XDR agent — matérialisent R3 "Maillon Faible" (ADFS, print) ou R2 "Urgence périmètre" (VPN)
+- **Jaune** (`nocontrol`) : actifs sans Cortex XDR agent — matérialisent R3 "Angle mort interne" (DC `srv-ad-01`, print) ou R1 "Urgence périmètre" (pare-feu VPN)
 - **Bleu** (`normal`) : actifs standards protégés par XDR
 
 ## Chiffres clés à afficher en slide
@@ -80,11 +80,11 @@ flowchart TB
 | Total actifs Business Corp (focus) | 16 |
 | Actifs "personas" (users) supplémentaires | ~6 (hostname court) |
 | Zones logiques | 7 (dmz-web, dmz-edge, tier0, tier1, infra, cicd, cloud) |
-| Actifs avec IP publique (Internet Exposed) | 6 |
+| Actifs avec IP publique (zone exposée) | 6 |
 | Compensating controls déclarés | 4 (WAF F5 + PANW NGFW + XDR Windows + XDR Linux) |
-| Vulnerability Policies R1-R8 | 8 (CVRS-centric) |
+| Vulnerability Policies R1-R5 | 5 (CVRS-centric) |
 | Hero cases attendues après funnel | 6 |
-| Vulnerabilités brutes avant funnel (Rapid7) | ~150-200 |
+| Vulnerabilités brutes avant funnel (Rapid7) | ~115 (cohérentes OS / logiciels) |
 | Cases actionnables après funnel | 6-15 |
 
 ## Conversion vers draw.io / slide

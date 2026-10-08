@@ -1,86 +1,94 @@
-# Inventaire des catalogues CVE des 2 sims
+# Catalogue CVE du sim Rapid7 et règles de cohérence (v1.4)
 
-Référence rapide pour choisir des CVE dans `hero_pinning` du YAML — seules les CVE présentes dans `VULN_CATALOG_SEED` (Rapid7) ou `CVE_CATALOG_SEED` (Cyberwatch) peuvent être pinnées.
+Référence pour choisir des CVE dans `hero_pinning` (`config/business-corp-config.yaml`). Seules les CVE présentes dans `VULN_CATALOG_SEED` du sim Rapid7 (`simulator/generators/vulnerabilities.py`) peuvent être épinglées.
 
-Les 2 sims partagent **majoritairement** le même catalogue (40 CVE réelles), mais quelques CVE peuvent être exclusives à l'un ou l'autre. En cas de doute, vérifier via `grep CVE-YYYY-NNNN <fork>/simulator/generators/{vulnerabilities.py,cves.py}`.
+⚠️ **Cyberwatch retiré en v1** : seul le catalogue Rapid7 est documenté ici.
 
-## Catalogue commun (présent dans les 2 sims — vérifié)
+## Cohérence CVE / asset (v1.4)
 
-| CVE | Nom court | CVSS | KEV | Usage démo suggéré |
-|-----|-----------|------|-----|---------------------|
-| CVE-2021-44228 | Log4Shell (Apache Log4j) | 10.0 | ✅ | Hero 1 alt ou Hero 5 |
-| CVE-2024-3400 | PAN-OS GlobalProtect | 10.0 | ✅ | **Hero 1 préféré** |
-| CVE-2024-1709 | ScreenConnect | 10.0 | ✅ | Hero 1 alt |
-| CVE-2023-46604 | Apache ActiveMQ RCE | 10.0 | ✅ | Hero 2 alt |
-| CVE-2023-4966 | CitrixBleed | 9.4 | ✅ | Hero 1 alt |
-| CVE-2023-36884 | Windows Search RCE | 7.5 | ✅ | Hero 4 alt |
-| CVE-2023-23397 | Outlook Elevation of Privilege | 9.8 | ✅ | Hero 4 alt |
-| CVE-2023-38831 | WinRAR | 7.8 | ✅ | Hero 4 alt |
-| CVE-2023-20198 | Cisco IOS XE | 10.0 | ✅ | Hero 1 alt |
-| CVE-2023-34362 | MOVEit Transfer | 9.8 | ✅ | Hero 2 alt |
-| CVE-2022-30190 | **Follina** (MSDT RCE) | 7.8 | ✅ | **Hero 4 préféré** |
-| CVE-2022-22965 | Spring4Shell | 9.8 | ✅ | Hero 4 alt / Hero 5 alt |
-| CVE-2022-26134 | Confluence OGNL | 9.8 | ✅ | Hero 2 alt |
-| CVE-2021-34527 | PrintNightmare | 8.8 | ✅ | Hero 3 alt (Windows) |
-| CVE-2021-26855 | **ProxyLogon** (Exchange) | 9.8 | ✅ | **Hero 2 préféré** |
-| CVE-2020-1472 | **Zerologon** (Netlogon) | 10.0 | ✅ | **Hero 3 (proxy)** |
-| CVE-2019-19781 | Citrix ADC | 9.8 | ✅ | Hero 1 alt |
-| CVE-2019-0708 | BlueKeep | 9.8 | ✅ | Hero 3 alt |
-| CVE-2017-0144 | EternalBlue | 8.1 | ✅ | Hero 3 alt (Windows old) |
-| CVE-2024-6387 | regreSSHion (OpenSSH) | 8.1 | — | Hero 4 alt |
-| CVE-2024-38063 | Windows TCP/IP RCE | 9.8 | — | Hero 4 alt |
-| CVE-2023-50164 | Struts path traversal | 9.8 | ✅ | Hero 2 alt |
-| CVE-2024-27198 | TeamCity auth bypass | 9.8 | ✅ | Hero 1 alt |
-| CVE-2024-23917 | TeamCity Server | 9.8 | — | — |
-| CVE-2023-6875 | POST SMTP Mailer | 9.8 | — | — |
-| CVE-2024-21762 | FortiOS SSL VPN | 9.6 | ✅ | Hero 1 alt (VPN) |
-| CVE-2023-42917 | WebKit | 8.8 | ✅ | Hero 4 alt |
-| CVE-2016-3189 | **bzip2 use-after-free** | 6.5 | — | **Hero 6 préféré** (modéré) |
-| CVE-2018-11776 | Struts 2 namespace | 8.1 | — | Hero 5 alt |
-| CVE-2022-1388 | F5 BIG-IP iControl REST | 9.8 | ✅ | Hero 1 alt (ironique — F5 lui-même vuln) |
-| CVE-2023-46747 | F5 BIG-IP Config Utility | 9.8 | ✅ | Hero 1 alt |
-| CVE-2024-4577 | PHP CGI arg injection | 9.8 | ✅ | Hero 2 alt |
-| CVE-2024-30078 | Wi-Fi driver RCE | 8.8 | — | — |
-| CVE-2024-26169 | Windows Error Reporting | 7.8 | ✅ | Hero 4 alt (EoP) |
-| CVE-2023-24880 | SmartScreen bypass | 5.4 | ✅ | Hero 6 alt (modéré + KEV) |
-| CVE-2022-41040 | ProxyNotShell part 1 | 8.8 | ✅ | Hero 2 alt |
-| CVE-2022-41082 | ProxyNotShell part 2 | 8.8 | ✅ | Hero 2 alt |
-| CVE-2023-3519 | Citrix ADC RCE | 9.8 | ✅ | Hero 1 alt |
-| CVE-2024-0204 | GoAnywhere MFT | 9.8 | ✅ | Hero 2 alt (portail transfert) |
-| CVE-2024-21413 | Outlook MonikerLink | 9.8 | — | Hero 4 alt |
+Depuis la v1.4, le sim n'attribue plus les CVE au hasard parmi tout le catalogue : chaque asset ne reçoit que des CVE **applicables à son OS et à ses logiciels**. Avant, 72 % des paires (asset, CVE) remontées dans XSIAM étaient incohérentes (Exchange sur un Mac, Cisco IOS XE sur une Debian, BlueKeep sur Windows 10…).
 
-## Champs disponibles par sim
+Mécanique :
 
-### Rapid7 (`vulnerabilities.py`)
+- **Plateforme** déduite de l'OS : `windows-client` (+ `office`, `browser`), `windows-server`, `macos` (+ `browser`), `ios`, `linux`, `panos`
+- **Rôles** logiciels déclarés par hostname :
+  - natifs : `ASSET_ROLES` dans `simulator/generators/assets.py` du sim (ex. `srv-mail` = `exchange`, `srv-ad-01` = `domain-controller`, `srv-ci` = `java` + `teamcity`) ;
+  - assets ajoutés : `extra_assets[].roles` dans le YAML ;
+  - surcharge des natifs : `asset_roles` dans le YAML.
+- **Surcharge d'OS** : `os_overrides` dans le YAML (ex. `srv-vpn` → `PAN-OS 10.2`, valeur à choisir parmi `EXTRA_OS` du sim).
+- Chaque CVE déclare dans `CVE_REQUIREMENTS` les combinaisons de tags qu'elle exige. Le tirage (déterministe) ne pioche que dans les CVE compatibles.
 
-Fields : `id`, `title`, `description`, `severity`, `severityScore`, `cves`, `cvss` (v2 & v3), `riskScore`, `categories`, `exploits`, `malwareKits`, `pci` block, `denialOfService`.
+Une CVE **épinglée** est toujours ajoutée, même sur un asset incompatible (choix explicite) : préférer une CVE compatible.
 
-**Note importante** : Rapid7 sim ne porte PAS de champ `epss` ni `kev` — ces valeurs seront **auto-enrichies par Cortex Vulnerability Intelligence** après ingestion. Pas besoin de les avoir dans le sim.
+Volume attendu : ~115 findings sur 22 assets (contre ~230 avant, dont la majorité incohérents). Les serveurs Linux génériques portent peu de CVE de ce catalogue, ce qui est réaliste.
 
-### Cyberwatch (`cves.py`)
+## Catalogue (49 CVE)
 
-Fields : `cve_code`, `content`, `level`, `score`, `score_v3`, `epss`, `exploit_code_maturity`, `exploitable`, `technologies`, `cvss`, `cvss_v3`, `cwe`, `published`, `last_modified`.
+KEV : indicatif (statut CISA à la date de rédaction). Les valeurs EPSS / KEV réellement utilisées sont enrichies par Cortex Vulnerability Intelligence après ingestion. Colonne « assets compatibles » calculée sur le parc Business Corp patché (assets ajoutés et `os_overrides` inclus).
 
-**Cyberwatch porte l'EPSS natif** — utile pour Hero 4 (EPSS Follina). Le KEV n'est pas natif mais Cortex l'ajoute post-ingestion.
+| CVE | Titre | CVSS | KEV | Exige (OU entre alternatives) | Assets compatibles (parc Business Corp) |
+|-----|-------|------|-----|-------------------------------|------------------------------------------|
+| CVE-2021-44228 | Apache Log4j Remote Code Execution (Log4Shell) | 10.0 | ✅ | `java` | srv-web-01, srv-ci, cloud-app-01, srv-portail |
+| CVE-2024-3400 | Palo Alto Networks PAN-OS Command Injection | 10.0 | ✅ | `panos` | srv-vpn |
+| CVE-2024-1709 | ConnectWise ScreenConnect Authentication Bypass | 10.0 | ✅ | `screenconnect` | *aucun (orpheline)* |
+| CVE-2023-46604 | Apache ActiveMQ Remote Code Execution | 10.0 | ✅ | `activemq` | cloud-app-01 |
+| CVE-2023-4966 | Citrix NetScaler ADC Buffer Overflow (CitrixBleed) | 9.4 | ✅ | `citrix` | *aucun (orpheline)* |
+| CVE-2023-36884 | Windows Search Remote Code Execution | 8.8 | ✅ | `office+windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2023-23397 | Microsoft Outlook Elevation of Privilege | 9.8 | ✅ | `office+windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2023-38831 | RARLAB WinRAR Code Execution | 7.8 | ✅ | `windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2023-20198 | Cisco IOS XE Web UI Privilege Escalation | 10.0 | ✅ | `cisco-ios` | *aucun (orpheline)* |
+| CVE-2023-34362 | Progress MOVEit Transfer SQL Injection | 9.8 | ✅ | `moveit` | *aucun (orpheline)* |
+| CVE-2022-30190 | Microsoft Diagnostic Tool (Follina) Remote Code Execution | 7.8 | ✅ | `windows-client OU windows-server` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID, srv-web-01, srv-mail, srv-ad-01, srv-fs-01, srv-adfs-01, srv-print |
+| CVE-2022-22965 | Spring Framework Remote Code Execution (Spring4Shell) | 9.8 | ✅ | `java+web` | srv-web-01 |
+| CVE-2022-26134 | Atlassian Confluence Server OGNL Injection | 9.8 | ✅ | `confluence` | *aucun (orpheline)* |
+| CVE-2021-34527 | Windows Print Spooler RCE (PrintNightmare) | 8.8 | ✅ | `windows-client OU windows-server` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID, srv-web-01, srv-mail, srv-ad-01, srv-fs-01, srv-adfs-01, srv-print |
+| CVE-2021-26855 | Microsoft Exchange Server RCE (ProxyLogon) | 9.8 | ✅ | `exchange` | srv-mail |
+| CVE-2020-1472 | Netlogon Elevation of Privilege (Zerologon) | 10.0 | ✅ | `domain-controller` | srv-ad-01 |
+| CVE-2019-19781 | Citrix ADC Directory Traversal | 9.8 | ✅ | `citrix` | *aucun (orpheline)* |
+| CVE-2019-0708 | Windows Remote Desktop RCE (BlueKeep) | 9.8 | ✅ | `windows-legacy` | *aucun (orpheline)* |
+| CVE-2017-0144 | Windows SMB RCE (EternalBlue) | 8.1 | ✅ | `windows-legacy` | *aucun (orpheline)* |
+| CVE-2024-6387 | OpenSSH regreSSHion Signal Handler Race Condition | 8.1 | — | `linux` | srv-web-02, srv-db-01, srv-db-02, srv-monitoring, srv-ci, cloud-lb-01, cloud-app-01, srv-portail, smtp-relay |
+| CVE-2024-38063 | Windows TCP/IP Remote Code Execution | 9.8 | — | `windows-client OU windows-server` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID, srv-web-01, srv-mail, srv-ad-01, srv-fs-01, srv-adfs-01, srv-print |
+| CVE-2023-50164 | Apache Struts Path Traversal | 9.8 | ✅ | `java+web` | srv-web-01 |
+| CVE-2024-27198 | JetBrains TeamCity Authentication Bypass | 9.8 | ✅ | `teamcity` | srv-ci |
+| CVE-2024-23917 | JetBrains TeamCity Authentication Bypass | 9.8 | — | `teamcity` | srv-ci |
+| CVE-2023-6875 | POST SMTP Mailer WordPress Plugin Authentication Bypass | 9.8 | — | `php+web` | srv-web-02 |
+| CVE-2024-21762 | Fortinet FortiOS Out-of-Bounds Write | 9.6 | ✅ | `fortios` | *aucun (orpheline)* |
+| CVE-2023-42917 | Apple WebKit Memory Corruption | 8.8 | ✅ | `macos OU ios` | BSNS-MAC-BOB, BSNS-MAC-EMMA, BSNS-MOB-FLORA |
+| CVE-2016-3189 | bzip2recover Use-After-Free | 6.5 | — | `linux` | srv-web-02, srv-db-01, srv-db-02, srv-monitoring, srv-ci, cloud-lb-01, cloud-app-01, srv-portail, smtp-relay |
+| CVE-2018-11776 | Apache Struts 2 RCE | 8.1 | ✅ | `java+web` | srv-web-01 |
+| CVE-2022-1388 | F5 BIG-IP iControl REST Authentication Bypass | 9.8 | ✅ | `f5` | *aucun (orpheline)* |
+| CVE-2023-46747 | F5 BIG-IP TMUI Authentication Bypass | 9.8 | ✅ | `f5` | *aucun (orpheline)* |
+| CVE-2024-4577 | PHP CGI Argument Injection | 9.8 | ✅ | `php+windows-server` | *aucun (orpheline)* |
+| CVE-2024-30078 | Windows Wi-Fi Driver Remote Code Execution | 8.8 | — | `windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2024-26169 | Windows Error Reporting Service Elevation of Privilege | 7.8 | ✅ | `windows-client OU windows-server` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID, srv-web-01, srv-mail, srv-ad-01, srv-fs-01, srv-adfs-01, srv-print |
+| CVE-2023-24880 | Windows SmartScreen Security Feature Bypass | 5.4 | ✅ | `windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2022-41040 | Microsoft Exchange Server SSRF (ProxyNotShell) | 8.8 | ✅ | `exchange` | srv-mail |
+| CVE-2022-41082 | Microsoft Exchange Server RCE (ProxyNotShell) | 8.8 | ✅ | `exchange` | srv-mail |
+| CVE-2023-3519 | Citrix ADC & Gateway Unauthenticated RCE | 9.8 | ✅ | `citrix` | *aucun (orpheline)* |
+| CVE-2024-0204 | Fortra GoAnywhere MFT Authentication Bypass | 9.8 | ✅ | `mft` | srv-portail |
+| CVE-2024-21413 | Microsoft Outlook Remote Code Execution | 9.8 | ✅ | `office+windows-client` | BSNS-WIN-ALICE, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID |
+| CVE-2024-0012 | Palo Alto Networks PAN-OS Management Interface Authentication Bypass | 9.3 | ✅ | `panos` | srv-vpn |
+| CVE-2023-41064 | Apple ImageIO Buffer Overflow (BLASTPASS) | 7.8 | ✅ | `macos OU ios` | BSNS-MAC-BOB, BSNS-MAC-EMMA, BSNS-MOB-FLORA |
+| CVE-2023-41993 | Apple WebKit Arbitrary Code Execution | 9.8 | ✅ | `macos OU ios` | BSNS-MAC-BOB, BSNS-MAC-EMMA, BSNS-MOB-FLORA |
+| CVE-2024-23222 | Apple WebKit Type Confusion | 8.8 | ✅ | `macos OU ios` | BSNS-MAC-BOB, BSNS-MAC-EMMA, BSNS-MOB-FLORA |
+| CVE-2023-4863 | Google Chrome libwebp Heap Buffer Overflow | 8.8 | ✅ | `browser` | BSNS-WIN-ALICE, BSNS-MAC-BOB, BSNS-WIN-CHARLIE, BSNS-WIN-DAVID, BSNS-MAC-EMMA |
+| CVE-2023-4911 | GNU C Library Dynamic Loader Buffer Overflow (Looney Tunables) | 7.8 | ✅ | `linux` | srv-web-02, srv-db-01, srv-db-02, srv-monitoring, srv-ci, cloud-lb-01, cloud-app-01, srv-portail, smtp-relay |
+| CVE-2024-10979 | PostgreSQL PL/Perl Environment Variable Manipulation | 8.8 | — | `postgresql` | srv-db-01, srv-db-02 |
+| CVE-2021-43798 | Grafana Directory Traversal | 7.5 | — | `grafana` | srv-monitoring |
+| CVE-2023-51764 | Postfix SMTP Smuggling | 5.3 | — | `smtp` | smtp-relay |
 
-## Vérifier qu'une CVE existe dans un catalogue
 
-```powershell
-cd C:\Users\jcourtemanch\Documents\dev\demo\sims\Rapid7InsightVM-simul
-Select-String -Path simulator\generators\vulnerabilities.py -Pattern "CVE-2024-3400"
+**CVE orphelines** : aucune machine du parc Business Corp n'a le produit concerné (Citrix, F5, FortiOS, Cisco IOS XE, Confluence, MOVEit, ScreenConnect, Windows ancien pour BlueKeep / EternalBlue). Elles restent au catalogue pour un futur asset : par exemple un `f5-waf-01` avec le rôle `f5` (le contrôle compensatoire lui-même vulnérable), en ajoutant si besoin une empreinte d'OS dans `EXTRA_OS`.
 
-cd ..\cyberwatch-simul
-Select-String -Path simulator\generators\cves.py -Pattern "CVE-2024-3400"
+## Vérifier qu'une CVE existe dans le catalogue
+
+```bash
+grep -n "CVE-2024-3400" <sims>/Rapid7InsightVM-simul/simulator/generators/vulnerabilities.py
 ```
 
-## Ajouter une CVE au catalogue (si vraiment nécessaire)
+## Ajouter une CVE au catalogue
 
-Non recommandé pour la démo v1 — le catalogue de 40 CVE couvre toutes les hero cases documentées.
-
-Si besoin de forcer une CVE absente (ex : CVE-2024-XXXXX du mois) :
-1. Ouvrir `simulator/generators/vulnerabilities.py` (Rapid7) ou `cves.py` (Cyberwatch)
-2. Ajouter un tuple au `VULN_CATALOG_SEED` / `CVE_CATALOG_SEED` en respectant la structure
-3. Commit + redeploy
-4. Pinner via le YAML
-
-Ce cas de figure est documenté comme roadmap v3 (script mensuel d'update CVE actualité).
+1. Ajouter un tuple dans `VULN_CATALOG_SEED` (`simulator/generators/vulnerabilities.py` du sim)
+2. Déclarer son applicabilité dans `CVE_REQUIREMENTS` (sans entrée, la CVE n'est jamais tirée)
+3. Commit + redeploy, puis épingler via le YAML si besoin

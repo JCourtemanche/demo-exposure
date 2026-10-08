@@ -13,6 +13,9 @@
 #   1. Les assets custom à AJOUTER aux 12 servers natifs du sim Rapid7
 #   2. Le pinning des paires (asset, CVE) pour garantir que les 6 hero cases
 #      apparaissent bien dans XSIAM après ingestion
+#   3. (v1.4) Les rôles logiciels et surcharges d'OS qui garantissent la
+#      cohérence CVE / asset : le sim ne tire que des CVE applicables à l'OS
+#      et aux rôles de chaque asset (pas d'Exchange sur un Mac)
 #
 # Workflow d'utilisation :
 #   1. Éditer ce fichier
@@ -25,7 +28,7 @@
 #
 # Format des CVE : utiliser l'ID canonique CVE-YYYY-NNNN. Toutes les CVE
 # référencées ici doivent exister dans le catalogue du sim source
-# (voir config/catalogs-inventory.md pour la liste des 40 CVE de chaque sim).
+# (voir config/catalogs-inventory.md pour la liste des 49 CVE du sim Rapid7).
 # ============================================================
 
 version: 1
@@ -37,6 +40,12 @@ company: business.org
 #
 # Ces assets sont ajoutés à EXTRA_SERVER_SEED dans le sim Rapid7.
 # Format Rapid7 (tuple 4) : hostname, ip, os (nom complet), site_id
+#
+# `roles` (v1.4) : rôles logiciels de l'asset, en plus de la plateforme déduite
+# de l'OS. Ils décident quelles CVE du catalogue l'asset peut porter (voir
+# CVE_REQUIREMENTS dans generators/vulnerabilities.py du sim Rapid7).
+# Rôles disponibles : exchange, domain-controller, java, web, php, teamcity,
+# activemq, mft, postgresql, grafana, smtp.
 #
 # `zone_hint` et `owner_hint` sont documentaires (pour runbook 05 tagging).
 # Ils NE SONT PAS injectés dans le sim (car le sim n'a pas ces champs)
@@ -54,11 +63,12 @@ extra_assets:
     zone_hint: dmz-web
     owner_hint: appdev
     tier_hint: 1
+    roles: [java, mft]            # portail de transfert type GoAnywhere MFT (Java, Linux)
     inject_in: [rapid7]
     # v2 (Cyberwatch) — préservé pour usage futur
     cw_os_key: ubuntu_2204_64
     cw_category: server
-    cw_description: "Portail public de transfert de fichiers (type MOVEit)"
+    cw_description: "Portail public de transfert de fichiers (type GoAnywhere MFT)"
     cw_groups: [601, 610, 620]
 
   - hostname: srv-adfs-01.business.org
@@ -68,6 +78,7 @@ extra_assets:
     zone_hint: tier0
     owner_hint: secops
     tier_hint: 0
+    roles: []                     # pas de CVE ADFS au catalogue : CVE Windows Server uniquement
     inject_in: [rapid7]
     cw_os_key: windows_2022
     cw_category: server
@@ -81,6 +92,7 @@ extra_assets:
     zone_hint: infra
     owner_hint: it-corp
     tier_hint: 3
+    roles: []                     # spouleur d'impression : PrintNightmare (couvert par windows-server)
     inject_in: [rapid7]
     cw_os_key: windows_2019
     cw_category: server
@@ -94,6 +106,7 @@ extra_assets:
     zone_hint: dmz-edge
     owner_hint: it-corp
     tier_hint: 2
+    roles: [smtp]                 # Postfix
     inject_in: [rapid7]
     cw_os_key: debian_12_64
     cw_category: server
@@ -114,47 +127,103 @@ extra_assets:
 
 hero_pinning:
 
-  # Hero 1 — Urgence Périmètre (CVRS ≥ 90 + Internet Exposed)
+  # v1.4 : heroes alignés sur les 5 policies réelles du tenant (évaluées dans l'ordre,
+  # la première qui correspond gagne) :
+  #   R1 Critical  KEV ou EPSS >= 90 %             scope : assets exposés (DMZ)
+  #   R2 Critical  CVRS >= 90                       scope : assets exposés (DMZ)
+  #   R3 High      KEV et CVRS >= 90                scope : tout Business Corp
+  #   R4 High      CVRS >= 80 et Exploitable        scope : tout Business Corp
+  #   R5 Medium    CVRS <= 89                       scope : assets exposés (DMZ)
+  # Toutes les paires ci-dessous sont cohérentes avec l'OS et les rôles de l'asset.
+
+  # Hero 1 — Urgence périmètre : pare-feu GlobalProtect exposé (PAN-OS, voir os_overrides) -> R1
   - asset: srv-vpn.business.org
-    cves: [CVE-2024-3400]        # PAN-OS GlobalProtect
+    cves: [CVE-2024-3400]        # PAN-OS GlobalProtect, KEV, CVSS 10
     source: rapid7
-    narrative: "Urgence Périmètre — VPN box exposé, exploitation active (KEV)"
+    narrative: "Urgence périmètre — pare-feu VPN exposé, exploitation active (KEV), pas d'agent possible"
 
-  # Hero 2 — Arme aux mains de l'ennemi (KEV + Internet Exposed)
+  # Hero 2 — Exploitation active : Exchange OWA exposé -> R1 (srv-mail doit être dans le groupe exposé)
   - asset: srv-mail.business.org
-    cves: [CVE-2021-26855]       # ProxyLogon
+    cves: [CVE-2021-26855]       # ProxyLogon, KEV
     source: rapid7
-    narrative: "KEV — Exchange exposé, ProxyLogon dans catalogue CISA"
+    narrative: "KEV — Exchange exposé, ProxyLogon dans le catalogue CISA"
 
-  # Hero 3 — Le Maillon Faible (CVSS ≥ 8 + Compensating Control = None)
-  # v1 : migré depuis esxi-01 (Cyberwatch-only) vers srv-adfs-01 (extra BC Rapid7).
-  # Narrative : ADFS Tier 0 identity federation, souvent traité comme appliance,
-  # pas d'agent Cortex XDR déployé → Zerologon (CVSS 10) exploitable en interne.
-  - asset: srv-adfs-01.business.org
-    cves: [CVE-2020-1472]        # Zerologon (Netlogon protocol vuln — pertinent pour ADFS)
+  # Hero 3 — Angle mort interne : contrôleur de domaine Tier 0 -> R3
+  # v1.4 : déplacé de srv-adfs-01 vers srv-ad-01 (Zerologon touche les DC, pas ADFS).
+  # Pour garder CVRS >= 90, ne pas déclarer de contrôle compensatoire XDR sur srv-ad-01 (runbook 06).
+  - asset: srv-ad-01.business.org
+    cves: [CVE-2020-1472]        # Zerologon (Netlogon), KEV, CVSS 10
     source: rapid7
-    narrative: "Maillon Faible — ADFS Tier 0 sans agent XDR, Zerologon CVSS 10"
+    narrative: "Angle mort interne — DC Tier 0, Zerologon CVSS 10, mouvement latéral immédiat"
 
-  # Hero 4 — Menace Imminente EPSS (EPSS > 90% + Internet Exposed)
-  # v1 : migré depuis alice+Follina (Cyberwatch endpoint) vers srv-web-01+Spring4Shell.
-  # Narrative : serveur web DMZ exposé Internet, Spring4Shell CVSS 9.8 + EPSS élevé
-  # → exploitation attendue imminemment par scanners automatiques.
+  # Hero 4 — Exploit prêt : front web Java exposé -> R1 (KEV sur asset exposé)
   - asset: srv-web-01.business.org
-    cves: [CVE-2022-22965]       # Spring4Shell — CVSS 9.8, EPSS élevé, exposé
+    cves: [CVE-2022-22965]       # Spring4Shell, KEV, CVSS 9.8
     source: rapid7
-    narrative: "EPSS élevé — Spring4Shell sur serveur web DMZ, exploitation imminente"
+    narrative: "Spring4Shell sur serveur web DMZ, exploitation imminente"
 
-  # Hero 5 — Risque Confirmé Workload (CVRS ≥ 70 + Package-in-use)
+  # Hero 5 — Risque confirmé workload : CI Java interne -> R3 (KEV + CVRS >= 90)
   - asset: srv-ci.business.org
     cves: [CVE-2021-44228]       # Log4Shell
     source: rapid7
     narrative: "Log4Shell sur CI Java — Package In Use validé par AST"
 
-  # Hero 6 — Nettoyage de Surface (CVRS 60-80 + Internet Exposed)
+  # Hero 6 — Réduction de surface externe : vuln modérée sur portail exposé -> R5
   - asset: srv-portail.business.org
     cves: [CVE-2016-3189]        # bzip2 use-after-free (modéré)
     source: rapid7
-    narrative: "Vuln modérée sur portail public — hygiène ASM"
+    narrative: "Vuln modérée sur portail public — hygiène de surface"
+
+  # Illustration R2 — critique non KEV sur asset exposé (CVRS observé ~97 sur le tenant)
+  - asset: srv-web-01.business.org
+    cves: [CVE-2024-38063]       # Windows TCP/IP RCE, non KEV
+    source: rapid7
+    narrative: "R2 — faille critique contextualisée sur front web exposé"
+
+  # Illustration R4 — exploitable non KEV sur asset interne (CVRS >= 80 à valider)
+  - asset: srv-ci.business.org
+    cves: [CVE-2024-23917]       # TeamCity auth bypass, non KEV, CVSS 9.8
+    source: rapid7
+    narrative: "R4 — TeamCity exploitable, correctif disponible"
+
+  # Scénario Intune (repo intune-simul) — postes utilisateurs remédiés via Intune
+  - asset: BSNS-WIN-ALICE
+    cves: [CVE-2024-38063]       # Windows TCP/IP, KB d'août 2024
+    source: rapid7
+    narrative: "Intune — hero : correctif Windows accéléré"
+  - asset: BSNS-WIN-CHARLIE
+    cves: [CVE-2024-38063]
+    source: rapid7
+    narrative: "Intune — Windows 11"
+  - asset: BSNS-WIN-DAVID
+    cves: [CVE-2024-38063]
+    source: rapid7
+    narrative: "Intune — Windows 10"
+  - asset: BSNS-MAC-EMMA
+    cves: [CVE-2023-42917]       # WebKit, macOS 14.1.2
+    source: rapid7
+    narrative: "Intune — mise à jour macOS"
+  - asset: BSNS-MOB-FLORA
+    cves: [CVE-2023-42917]       # WebKit, iOS 17.1.2
+    source: rapid7
+    narrative: "Intune — mise à jour iOS"
+
+# ------------------------------------------------------------
+# 2b. COHÉRENCE CVE / ASSET (v1.4)
+# ------------------------------------------------------------
+#
+# os_overrides : remplace l'OS d'un asset natif du sim. La valeur doit exister
+# dans EXTRA_OS (generators/base.py du sim Rapid7).
+# asset_roles  : remplace les rôles logiciels d'un asset natif (ceux des assets
+# ajoutés se déclarent dans extra_assets[].roles). Les rôles par défaut des
+# natifs sont dans ASSET_ROLES (generators/assets.py du sim).
+# ------------------------------------------------------------
+
+os_overrides:
+  srv-vpn.business.org: PAN-OS 10.2   # Hero 1 : CVE-2024-3400 est une faille PAN-OS, pas Ubuntu
+
+asset_roles: {}
+  # exemple : srv-fs-01.business.org: [web]
 
 # ------------------------------------------------------------
 # 3. INTERNET EXPOSURE — IP publique en REMPLACEMENT (v1.3 pivot)
@@ -203,25 +272,29 @@ additional_public_ips:
 # ces tags pour créer les groupes dynamiques EM-demo-zone-*, EM-demo-owner-*, etc.
 # ------------------------------------------------------------
 
+# v1.4 : `exposure: internet` marque les 6 assets à IP publique. Cortex ne déduit
+# pas Internet Exposed d'une IP remontée par un scanner (il faut ASM / CNA + scan
+# externe, et la plage TEST-NET ne répond jamais) : les policies R1 / R2 / R5 se
+# cadrent donc sur un asset group construit sur ce tag (runbook 05).
 asset_tags:
   # === Natifs Rapid7 (12 servers + personas) ===
-  srv-web-01.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1"}
-  srv-web-02.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1"}
+  srv-web-01.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1", exposure: internet}
+  srv-web-02.business.org:     {zone: dmz-web,   owner: appdev,  tier: "1", exposure: internet}
   srv-db-01.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
   srv-db-02.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
-  srv-mail.business.org:       {zone: tier1,     owner: it-corp, tier: "1"}
+  srv-mail.business.org:       {zone: tier1,     owner: it-corp, tier: "1", exposure: internet}
   srv-ad-01.business.org:      {zone: tier0,     owner: secops,  tier: "0"}
   srv-fs-01.business.org:      {zone: tier1,     owner: it-corp, tier: "1"}
-  srv-vpn.business.org:        {zone: dmz-edge,  owner: secops,  tier: "0"}
+  srv-vpn.business.org:        {zone: dmz-edge,  owner: secops,  tier: "0", exposure: internet}
   srv-monitoring.business.org: {zone: tier1,     owner: it-corp, tier: "2"}
   srv-ci.business.org:         {zone: cicd,      owner: devops,  tier: "1"}
   cloud-lb-01.business.org:    {zone: cloud,     owner: devops,  tier: "2"}
   cloud-app-01.business.org:   {zone: cloud,     owner: devops,  tier: "2"}
   # === Extras BC (injectés via extra_assets ci-dessus) ===
-  srv-portail.business.org:    {zone: dmz-web,   owner: appdev,  tier: "1"}
+  srv-portail.business.org:    {zone: dmz-web,   owner: appdev,  tier: "1", exposure: internet}
   srv-adfs-01.business.org:    {zone: tier0,     owner: secops,  tier: "0"}
   srv-print.business.org:      {zone: infra,     owner: it-corp, tier: "3"}
-  smtp-relay.business.org:     {zone: dmz-edge,  owner: it-corp, tier: "2"}
+  smtp-relay.business.org:     {zone: dmz-edge,  owner: it-corp, tier: "2", exposure: internet}
 
 # ------------------------------------------------------------
 # 4. CONFIGURATION SYNC (déprécié — géré par convention)

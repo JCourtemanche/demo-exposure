@@ -2,7 +2,14 @@
 
 Objectif : appliquer la configuration `business-corp-config.yaml` aux 2 forks de simulateurs pour garantir :
 - Les 4 assets narratifs custom (srv-portail, srv-adfs-01, srv-print, smtp-relay)
-- Les 6 hero cases pinnées (asset ↔ CVE)
+- Les 6 hero cases pinnées (asset ↔ CVE), plus les illustrations R2 / R4 et les CVE du scénario Intune
+- (v1.4) La cohérence CVE / asset : rôles logiciels des assets ajoutés (`extra_assets[].roles`), surcharge d'OS (`os_overrides`, ex. `srv-vpn` → PAN-OS) et tag `exposure:internet`
+
+### v1.4 — sim Rapid7 récent requis
+
+La cohérence CVE / asset est calculée par le sim Rapid7 lui-même (`CVE_REQUIREMENTS` + `ASSET_ROLES`, depuis sa version avec 49 CVE). `apply-patches.py` étant idempotent, **un fork cloné avant cette version reste patché à l'ancienne** et continue de tirer des CVE au hasard. `deploy-full.sh` s'arrête avec un message explicite dans ce cas.
+
+Pour rafraîchir un fork existant (il ne contient que l'upstream + les fichiers générés par les scripts) : le supprimer pour que `deploy-full.sh` le reclone, ou le remettre sur `origin/main` à la main, puis relancer le pipeline.
 
 ⚠️ **Ce runbook remplace la partie "déploiement vanilla" du runbook 02 si vous suivez l'approche B (fork + config). Le runbook 02 vanilla reste valide si vous avez choisi l'approche A (as-is).**
 
@@ -186,6 +193,8 @@ Une fois les 2 URLs Cloud Run stables, poursuivre avec le runbook `03-configure-
 | Extra assets absents des réponses du sim | Patch bloc 1 non appliqué | Re-vérifier `generators/assets.py` du fork |
 | Pinning CVE ne fonctionne pas | Patch bloc 3 ou 4 non appliqué | Ajouter les 2 lignes `_apply_pinned_cves(...)` |
 | CVE pinnée absente du catalogue | La CVE n'est pas dans `VULN_CATALOG_SEED` / `CVE_CATALOG_SEED` | Choisir une autre CVE (voir `config/catalogs-inventory.md`) |
+| `deploy-full.sh` : « fork antérieur à la v1.4 » | Fork cloné avant la cohérence CVE / asset | Rafraîchir le fork (voir § v1.4 en tête) |
+| Un asset reçoit des CVE inattendues | Rôle manquant ou erroné | Ajuster `extra_assets[].roles` / `asset_roles` (voir `config/catalogs-inventory.md`) |
 | Cloud Run redéploie mais retour identique | Cache Cloud Build ou révision non mise à jour | Forcer via `gcloud run services update-traffic <service> --to-latest --region=europe-west1` |
 
 ## Suivant

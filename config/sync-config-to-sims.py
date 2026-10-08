@@ -148,6 +148,37 @@ def build_overrides_py(config: dict, target_sim: str) -> str:
     lines.append("}")
     lines.append("")
 
+    # --- ASSET_ROLES (v1.4) ---
+    # Software roles merged into the sim's ASSET_ROLES: the sim only samples CVEs
+    # applicable to the asset OS + roles (CVE_REQUIREMENTS in generators/vulnerabilities.py).
+    # Sources: extra_assets[].roles and asset_roles (natives).
+    lines.append("# Software roles per hostname — drive CVE / asset coherence in the sim")
+    lines.append("# Key: hostname (lower)   Value: list of role tags")
+    lines.append("ASSET_ROLES = {")
+    if target_sim == "rapid7":
+        roles: dict[str, list[str]] = {}
+        for a in extras:
+            if a.get("roles"):
+                roles[a["hostname"].lower()] = list(a["roles"])
+        for host, host_roles in (config.get("asset_roles") or {}).items():
+            roles[host.lower()] = list(host_roles or [])
+        for host, host_roles in roles.items():
+            lines.append(f"    {host!r}: {host_roles!r},")
+    lines.append("}")
+    lines.append("")
+
+    # --- OS_OVERRIDES (v1.4) ---
+    # Replace the OS of native sim assets (e.g. srv-vpn -> PAN-OS 10.2 for the CVE-2024-3400 hero).
+    # The OS name must exist in the sim's EXTRA_OS fingerprints (generators/base.py).
+    lines.append("# OS overrides for native sim assets — value must be a key of EXTRA_OS in the sim")
+    lines.append("# Key: hostname (lower)   Value: OS name")
+    lines.append("OS_OVERRIDES = {")
+    if target_sim == "rapid7":
+        for host, os_name in (config.get("os_overrides") or {}).items():
+            lines.append(f"    {host.lower()!r}: {str(os_name)!r},")
+    lines.append("}")
+    lines.append("")
+
     return "\n".join(lines) + "\n"
 
 

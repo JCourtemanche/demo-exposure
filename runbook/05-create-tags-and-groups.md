@@ -200,6 +200,18 @@ Utilisé par la Vulnerability Policy R3 "Angle mort interne" (runbook 07) pour e
 
 Attendu : 3 assets (srv-vpn, srv-ad-01, srv-adfs-01).
 
+## Étape 5.4b — Créer les groupes utilisés par les Vulnerability Policies (v1.4)
+
+Les 5 policies du runbook 07 s'appuient sur deux groupes :
+
+| Nom | Filtre | Membres attendus | Utilisé par |
+|-----|--------|------------------|-------------|
+| `EM-demo-grp-Business-Corp` | tous les assets Business Corp (ex. `hostname contains "business.org"` OR `hostname starts with "BSNS-"`) | 22 | R3, R4 |
+| `EM-demo-grp-Business-Corp-exposed` | `xdm.asset.tags.exposure = "internet"` (ou `tags contains "exposure:internet"`) | 6 : srv-vpn, srv-web-01, srv-web-02, srv-mail, srv-portail, smtp-relay | R1, R2, R5 |
+
+Le tag `exposure:internet` est émis par le sim pour les assets qui portent une IP publique (`asset_tags` dans `config/business-corp-config.yaml`).
+
+Pourquoi ce groupe : Cortex ne déduit pas **Internet Exposed** d'une IP remontée par un scanner (il faut ASM / CNA + scan externe, et la plage TEST-NET ne répond jamais). Le groupe porte donc la notion d'exposition dans les policies. Il remplace avantageusement les groupes de zone DMZ, qui excluent `srv-mail` (zone `tier1`, Exchange OWA exposé, hero 2).
 
 ## Étape 5.5 — Attribution "Business Criticality" (optionnel, boost narratif)
 
@@ -210,7 +222,7 @@ Impact : ils remontent dans le filtre "Low Business Impact" du funnel Command Ce
 ## Étape 5.6 — Validation
 
 XSIAM → **Inventory** → **Assets** → **Groups** :
-- Compter : 7 zones + 4 owners + 1 tier0 = **12 groupes** `EM-demo-*` créés
+- Compter : 7 zones + 4 owners + 1 tier0 + 2 groupes policies = **14 groupes** `EM-demo-*` créés
 - Chaque groupe montre un `member count` cohérent (v1 Rapid7 only) :
   - `EM-demo-zone-dmz-web` : 3 (srv-web-01, srv-web-02, srv-portail)
   - `EM-demo-zone-dmz-edge` : 2 (srv-vpn, smtp-relay)
@@ -224,6 +236,8 @@ XSIAM → **Inventory** → **Assets** → **Groups** :
   - `EM-demo-owner-appdev` : 3 (DMZ web)
   - `EM-demo-owner-devops` : ~3 (CI + cloud)
   - `EM-demo-business-tier0` : 3 (srv-vpn, srv-ad-01, srv-adfs-01)
+  - `EM-demo-grp-Business-Corp` : 22
+  - `EM-demo-grp-Business-Corp-exposed` : 6
 
 Attendre 15-30 min pour propagation complète (Cortex documente "immediate for new/updated assets; a few hours for previously untouched assets").
 

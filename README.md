@@ -1,11 +1,11 @@
 # Cortex Exposure Management — Business Corp Demo Kit (v1)
 
 > Kit démo prêt-à-l'emploi (FR) pour l'addon **Exposure Management** de Palo Alto Networks Cortex XDR / XSIAM.
-> Infrastructure fictive **Business Corp** (16 assets focus), source unique **Rapid7 InsightVM** (simulé en Cloud Run), 6 hero cases pinnées illustrant **8 règles narratives CVRS-centric** (R1 à R8), compensating controls et policies XSIAM.
+> Infrastructure fictive **Business Corp** (16 assets focus), source unique **Rapid7 InsightVM** (simulé en Cloud Run), 6 hero cases épinglées illustrant **5 règles CVRS-centric** (R1 à R5), compensating controls et policies XSIAM.
 
 **Objectif** : montrer à un client, en 35 minutes, comment le **CVRS** (Cortex Vulnerability Risk Score, propriétaire Cortex) — combiné à un funnel de priorisation et à des compensating controls — transforme 200+ vulnérabilités brutes en 6-15 cases actionnables avec ownership et SLA clairs.
 
-**Différenciateur principal** : le CVRS agrège CVSS + EPSS + KEV + Internet Exposed + Package-in-use + Compensating Controls dans un score 0-100 contextuel. Le CVSS seul est aveugle au contexte.
+**Différenciateur principal** : le CVRS agrège CVSS + EPSS + KEV + exposition + Package-in-use + Compensating Controls dans un score 0-100 contextuel. Le CVSS seul est aveugle au contexte.
 
 ---
 
@@ -38,13 +38,13 @@ bash scripts/smoke-test.sh
 
 **⏱️ Timing critique** : après avoir configuré Rapid7 dans XSIAM, prévoir **~2h** pour que `uvm_findings` se peuple avec CVRS + KEV + EPSS enrichis par Cortex Vulnerability Intelligence. Dérouler la démo **au moins 4h après le premier deploy** pour être sûr.
 
-Une fois les policies R1-R8 en place, dérouler le [talk track FR](narratif/talk-track-fr.md) chronomètre en main (35 min).
+Une fois les policies R1-R5 en place, dérouler le [talk track FR](narratif/talk-track-fr.md) chronomètre en main (35 min).
 
 ---
 
 ## 🎯 Ce que la démo raconte
 
-**Acte 1 (5 min, slides)** — Business Corp lundi matin : Rapid7 remonte 150 vulnérabilités critiques. Paralysie décisionnelle sans priorisation contextuelle.
+**Acte 1 (5 min, slides)** — Business Corp lundi matin : Rapid7 remonte plus d'une centaine de vulnérabilités, dont beaucoup critiques. Paralysie décisionnelle sans priorisation contextuelle.
 
 **Acte 2 (10 min, console)** — Funnel Exposure Management : 5 filtres (4 natifs Cortex + 1 policies custom) → ~15 cases prioritaires. Introduction du **CVRS** comme score contextuel.
 
@@ -52,12 +52,14 @@ Une fois les policies R1-R8 en place, dérouler le [talk track FR](narratif/talk
 
 | # | Hero case pinnée | Règle CVRS déclenchée |
 |---|------------------|----------------------|
-| 1 | `srv-vpn` + CVE-2024-3400 | **R2** Urgence périmètre (CVRS≥90 + Internet Exposed) |
-| 2 | `srv-mail` + CVE-2021-26855 (ProxyLogon) | **R1** Exploitation active périmètre (KEV + Internet Exposed) |
-| 3 | `srv-adfs-01` + CVE-2020-1472 (Zerologon) | **R3** Angle mort interne (KEV + CVRS≥90 + Tier 0) |
-| 4 | `srv-web-01` + CVE-2022-22965 (Spring4Shell) | **R4** Exploit prêt (EPSS≥0.7 + Fix disponible) |
-| 5 | `srv-ci` + CVE-2021-44228 (Log4Shell) | **R4** Exploit prêt (Package-in-use) |
-| 6 | `srv-portail` + CVE-2016-3189 | **R7** Réduction surface externe (CVRS moyen + Internet Exposed) |
+| 1 | `srv-vpn` (PAN-OS) + CVE-2024-3400 | **R1** Exploitation active périmètre (KEV, zone exposée) |
+| 2 | `srv-mail` + CVE-2021-26855 (ProxyLogon) | **R1** Exploitation active périmètre (KEV, zone exposée) |
+| 3 | `srv-ad-01` (DC) + CVE-2020-1472 (Zerologon) | **R3** Angle mort interne (KEV + CVRS ≥ 90, interne) |
+| 4 | `srv-web-01` + CVE-2022-22965 (Spring4Shell) | **R1** Exploit prêt (KEV / EPSS élevé, zone exposée) |
+| 5 | `srv-ci` + CVE-2021-44228 (Log4Shell) | **R3** Risque confirmé (KEV + CVRS ≥ 90, Package-in-use) |
+| 6 | `srv-portail` + CVE-2016-3189 | **R5** Réduction surface externe (CVRS ≤ 89, zone exposée) |
+
+Illustrations complémentaires : `srv-web-01` + CVE-2024-38063 (R2), `srv-ci` + CVE-2024-23917 TeamCity (R4).
 
 **Acte 4 (5 min)** — Compensating controls : WAF F5, PANW NGFW, Cortex XDR agent → effet CVRS.
 
@@ -65,7 +67,7 @@ Une fois les policies R1-R8 en place, dérouler le [talk track FR](narratif/talk
 
 **Acte 6 (2 min)** — Conclusion + roadmap client.
 
-Voir [`narratif/talk-track-fr.md`](narratif/talk-track-fr.md) pour le script complet et [`narratif/funnel-rules-table.md`](narratif/funnel-rules-table.md) pour les 8 règles.
+Voir [`narratif/talk-track-fr.md`](narratif/talk-track-fr.md) pour le script complet et [`narratif/funnel-rules-table.md`](narratif/funnel-rules-table.md) pour les 5 règles.
 
 ---
 
@@ -80,7 +82,7 @@ demo-exposure/
 ├── config/                          ⭐ Source de vérité unique
 │   ├── business-corp-config.yaml    # Extras + hero pinning + public IPs (à éditer)
 │   ├── sync-config-to-sims.py       # Génère business_corp_overrides.py
-│   ├── catalogs-inventory.md        # 40 CVE disponibles dans le sim Rapid7
+│   ├── catalogs-inventory.md        # 49 CVE du sim Rapid7 + règles de cohérence CVE / asset
 │   └── patches/
 │       ├── rapid7-patch.md          # Diff manuel Rapid7 (fallback)
 │       └── cyberwatch-patch.md      # Diff manuel Cyberwatch (v2 roadmap)
@@ -100,7 +102,7 @@ demo-exposure/
 │
 ├── narratif/
 │   ├── talk-track-fr.md             # Script 35 min complet (v1 Rapid7 only)
-│   ├── funnel-rules-table.md        # 8 règles narratives CVRS (R1-R8)
+│   ├── funnel-rules-table.md        # 5 règles CVRS (R1-R5)
 │   └── hero-cases.md                # Storyline détaillée par CVE hero
 │
 ├── runbook/
@@ -113,7 +115,7 @@ demo-exposure/
 │   ├── 04-configure-xsiam-cyberwatch.md   ⚠️ Retiré v1 — roadmap v2
 │   ├── 05-create-tags-and-groups.md
 │   ├── 06-declare-compensating-controls.md
-│   ├── 07-create-vulnerability-policy.md  ⭐ 8 policies CVRS R1-R8
+│   ├── 07-create-vulnerability-policy.md  ⭐ 5 policies CVRS R1-R5
 │   ├── 08-validation-checklist.md   ⭐ Note délai 2h ingestion
 │   └── 09-teardown.md
 │
@@ -125,11 +127,12 @@ demo-exposure/
 
 ## 🔧 Comment ça marche (mécanisme d'injection)
 
-Le simulateur Rapid7 a un catalogue **déterministe** de 40 CVE et 12 assets natifs. Pour aligner sur le narratif Business Corp, ce kit :
+Le simulateur Rapid7 a un catalogue **déterministe** de 49 CVE et 12 assets natifs. Depuis sa v1.4, il n'attribue à chaque asset que des CVE **applicables à son OS et à ses logiciels** (`CVE_REQUIREMENTS` + rôles par asset). Pour aligner sur le narratif Business Corp, ce kit :
 
 1. **Ajoute 4 assets custom** (`srv-portail`, `srv-adfs-01`, `srv-print`, `smtp-relay`) qui n'existent pas nativement
-2. **Pin 6 paires (asset, CVE)** pour garantir les hero cases à chaque ingestion
-3. **Ajoute des IPs publiques** (range TEST-NET RFC 5737) à 6 assets pour marquer Internet Exposed
+2. **Épingle les paires (asset, CVE)** des hero cases (et du scénario Intune) à chaque ingestion
+3. **Ajoute des IPs publiques** (range TEST-NET RFC 5737) et le tag `exposure:internet` à 6 assets, pour la zone exposée
+4. **(v1.4) Déclare les rôles logiciels** des assets ajoutés et **surcharge l'OS** de `srv-vpn` (PAN-OS) pour garder des CVE cohérentes
 
 Le mécanisme :
 
@@ -137,7 +140,7 @@ Le mécanisme :
 config/business-corp-config.yaml    (source de vérité, éditable)
               │
               ▼
-config/sync-config-to-sims.py       (génère EXTRA_ASSETS + PINNED_CVES + PUBLIC_IPS)
+config/sync-config-to-sims.py       (génère EXTRA_ASSETS + PINNED_CVES + PUBLIC_IPS + ASSET_TAGS + ASSET_ROLES + OS_OVERRIDES)
               │
               ▼
 <fork>/simulator/generators/business_corp_overrides.py
@@ -181,10 +184,11 @@ Voir [`runbook/01-prerequisites.md`](runbook/01-prerequisites.md) pour la checkl
 
 ## 🚦 Statut du kit v1
 
-- ✅ Documentation infra + narratif FR complets (8 règles CVRS + 6 hero cases)
+- ✅ Documentation infra + narratif FR complets (5 règles CVRS + 6 hero cases)
+- ✅ v1.4 : cohérence CVE / asset garantie par le sim (0 paire incohérente, contre 72 % avant)
 - ✅ Runbook 9 étapes end-to-end (Cyberwatch marqué v2 optionnel)
 - ✅ Config Business Corp + auto-patch idempotent (6 blocs + reports.py routes)
-- ✅ Public IPs pour matérialiser Internet Exposed (range TEST-NET)
+- ✅ Zone exposée : IP publiques (range TEST-NET) + tag `exposure:internet` (Cortex ne déduit pas Internet Exposed d'une IP scanner)
 - ✅ Scripts bootstrap GCP + smoke tests + A/B vanilla comparison
 - ✅ Testé end-to-end sur tenant XSIAM live (délai ingestion ~2h documenté)
 - 🔜 Roadmap v2 :
@@ -211,6 +215,7 @@ PRs bienvenues, notamment :
 - Doc Cortex Exposure Management : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/exposure-management
 - Doc Vulnerability Management : https://cortex-docs.paloaltonetworks.com/cortex-xdr-5.x/detect-investigate-and-respond-to-threats/vulnerability-management
 - Simulateur Rapid7 InsightVM : https://github.com/JCourtemanche/Rapid7InsightVM-simul
+- Remédiation Intune des postes Business Corp (playbook + simulateur Graph) : https://github.com/JCourtemanche/intune-simul
 - Simulateur Cyberwatch : https://github.com/JCourtemanche/cyberwatch-simul (v2)
 - Shared personas package : https://github.com/JCourtemanche/xsiam-shared-personas
 

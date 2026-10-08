@@ -72,9 +72,9 @@ XSIAM → **Settings** → **Exposure Management** → **Security Controls** →
 | **Scope: Asset Groups** | `EM-demo-zone-endpoints-win`, `EM-demo-zone-devs-linux`, `EM-demo-zone-tier0`, `EM-demo-zone-tier1`, `EM-demo-zone-cicd` |
 | **Default Effectiveness** | Effective |
 
-**⚠️ Ne PAS inclure** `EM-demo-zone-infra` (print server) ni `EM-demo-zone-dmz-edge` (VPN box) — c'est intentionnel pour matérialiser Hero Case 3 "Maillon Faible" (R3) et Hero Case 1 "Urgence Périmètre" (R2).
+**⚠️ Ne PAS inclure** `EM-demo-zone-infra` (print server) ni `EM-demo-zone-dmz-edge` (pare-feu VPN PAN-OS, sur lequel aucun agent n'est installable) : c'est intentionnel pour matérialiser le hero 1 « Urgence périmètre » (R1).
 
-**⚠️ Aussi retirer `srv-adfs-01` du scope XDR** malgré son appartenance à `EM-demo-zone-tier0` — car en v1 c'est cet asset qui porte Hero 3 (R3 "Angle mort interne"). Pour ce faire, créer un sous-groupe `EM-demo-zone-tier0-with-xdr` qui exclut ADFS via filtre `xdm.asset.tags.zone = "tier0" AND xdm.host.hostname != "srv-adfs-01.business.org"`.
+**⚠️ Aussi retirer `srv-ad-01` du scope XDR** malgré son appartenance à `EM-demo-zone-tier0` : depuis la v1.4, c'est cet asset (contrôleur de domaine) qui porte le hero 3 Zerologon (R3 « Angle mort interne », qui exige CVRS ≥ 90 ; un contrôle compensatoire efficace ferait baisser le score sous le seuil). Créer un sous-groupe `EM-demo-zone-tier0-with-xdr` qui exclut le DC : `xdm.asset.tags.zone = "tier0" AND xdm.host.hostname != "srv-ad-01.business.org"`. Récit : « le DC a été exclu du déploiement de l'agent lors du projet initial, par crainte d'impact sur l'authentification ».
 
 ### Contrôle 4 — VPN concentrateur (contexte, effet démo mineur)
 
@@ -115,7 +115,7 @@ Une fois en Active, ouvrir une case existante (ex : sur `srv-web-01.business.org
 
 Attendu (v1 Rapid7 only) :
 - Les vulns web sur `srv-web-01` : Compensating Control = "Partially Effective" (WAF F5 déclaré)
-- Les vulns sur `srv-adfs-01` (Hero 3) : Compensating Control = "Unknown" ou "Not Effective" (aucun control couvrant — pas d'XDR)
+- Les vulns sur `srv-ad-01` (Hero 3) : Compensating Control = "Unknown" ou "Not Effective" (aucun contrôle couvrant, pas d'agent XDR)
 - Les vulns sur `srv-ci` : Compensating Control = "Partially Effective" (XDR Linux couvre partiellement, mais Package In Use détecté par AST)
 - Les vulns sur `srv-vpn` (Hero 1) : Compensating Control = "Not Effective" (NGFW ne protège pas l'exploitation applicative)
 

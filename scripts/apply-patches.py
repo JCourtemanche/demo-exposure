@@ -66,6 +66,16 @@ try:
         PUBLIC_IPS as _BC_PUBLIC_IPS,
     )
     EXTRA_SERVER_SEED = EXTRA_SERVER_SEED + _BC_EXTRA_ASSETS
+    # v1.4: OS overrides (e.g. srv-vpn -> PAN-OS) and software roles driving CVE coherence
+    from . import business_corp_overrides as _BC_MOD
+    _BC_OS_OVERRIDES = getattr(_BC_MOD, "OS_OVERRIDES", {{}})
+    if _BC_OS_OVERRIDES:
+        EXTRA_SERVER_SEED = [
+            (_t[0], _t[1], _BC_OS_OVERRIDES.get(_t[0].lower(), _t[2])) + tuple(_t[3:])
+            for _t in EXTRA_SERVER_SEED
+        ]
+    if "ASSET_ROLES" in globals():
+        ASSET_ROLES.update(getattr(_BC_MOD, "ASSET_ROLES", {{}}))
 except ImportError:
     _BC_PINNED_CVES = {{}}
     _BC_PUBLIC_IPS = {{}}
@@ -215,8 +225,10 @@ def patch_rapid7(assets_py: Path) -> bool:
     src = src.replace("def _persona_assets", HELPER_RAPID7 + "\ndef _persona_assets", 1)
 
     # 3. Wrap r.sample dans _persona_assets (k=r.randint(4, 12))
+    # Matches both the legacy `r.sample(vulns_pool, k=r.randint(4, 12))` and the v1.4 sim
+    # `r.sample(pool, k=min(len(pool), r.randint(4, 12)))` (CVE / asset coherence).
     pattern_persona = re.compile(
-        r"(vulns\s*=\s*r\.sample\(vulns_pool,\s*k=r\.randint\(4,\s*12\)\))"
+        r"(vulns\s*=\s*r\.sample\((?:vulns_pool|pool),\s*k=(?:min\(len\(pool\),\s*)?r\.randint\(4,\s*12\)\)?\))"
     )
     if not pattern_persona.search(src):
         print(f"  ⚠️  Rapid7: pattern 'r.sample(vulns_pool, k=r.randint(4, 12))' introuvable")
@@ -230,7 +242,7 @@ def patch_rapid7(assets_py: Path) -> bool:
 
     # 4. Wrap r.sample dans _extra_assets (k=r.randint(8, 20))
     pattern_extra = re.compile(
-        r"(vulns\s*=\s*r\.sample\(vulns_pool,\s*k=r\.randint\(8,\s*20\)\))"
+        r"(vulns\s*=\s*r\.sample\((?:vulns_pool|pool),\s*k=(?:min\(len\(pool\),\s*)?r\.randint\(8,\s*20\)\)?\))"
     )
     if not pattern_extra.search(src):
         print(f"  ⚠️  Rapid7: pattern 'r.sample(vulns_pool, k=r.randint(8, 20))' introuvable")

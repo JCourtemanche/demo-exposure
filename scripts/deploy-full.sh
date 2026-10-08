@@ -77,6 +77,14 @@ if [ ! -d "$RAPID7_FORK" ]; then
   cd "$REPO_ROOT"
 else
   echo "  ✓ Rapid7InsightVM-simul déjà cloné"
+  # v1.4 : la cohérence CVE / asset exige un sim récent (CVE_REQUIREMENTS). Un fork cloné
+  # avant cette version reste patché à l'ancienne (apply-patches.py est idempotent).
+  if ! grep -q "CVE_REQUIREMENTS" "$RAPID7_FORK/simulator/generators/vulnerabilities.py" 2>/dev/null; then
+    echo "  ❌ Le fork $RAPID7_FORK est antérieur à la v1.4 du sim (pas de CVE_REQUIREMENTS)."
+    echo "     Rafraîchir le fork (le supprimer pour qu'il soit recloné, ou le mettre à jour"
+    echo "     sur origin/main), puis relancer ce script. Voir runbook/02b-patch-sims-with-config.md"
+    exit 1
+  fi
 fi
 
 if [ ! -d "$CYBERWATCH_FORK" ]; then
